@@ -22,6 +22,7 @@ import { addIssue, addTask } from "@/actions/misc";
 import { MeasurementCard } from "@/components/MeasurementCard";
 import { TaskList } from "@/components/TaskList";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { PhotoUploadForm } from "@/components/PhotoUploadForm";
 import { BackLink, Empty, Pill, Section, Select, Stat, StatusBadge } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -221,12 +222,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                 ))}
               </div>
             )}
-            <form action={addPhotos.bind(null, id)} className="grid sm:grid-cols-4 gap-2 no-print">
-              <input name="photos" type="file" accept="image/*" multiple className="input sm:col-span-2" required />
-              <Select name="kind" options={PHOTO_KINDS} defaultValue="FITTING" />
-              <input name="caption" placeholder="Caption" className="input" />
-              <button className="btn-primary sm:col-span-4 sm:justify-self-start">Upload photos</button>
-            </form>
+            <PhotoUploadForm action={addPhotos.bind(null, id)} />
           </Section>
         </div>
 

@@ -13,26 +13,28 @@
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
-    "backup": "node scripts/backup.mjs"
+    "backup": "tsx scripts/backup.ts",
+    "vercel-build": "prisma generate && prisma migrate deploy && next build"
   },
   "dependencies": {
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "@prisma/client": "^6.16.0",
+    "@vercel/blob": "^2.8.1",
     "next": "15.5.27",
-    "@prisma/client": "^6.16.0"
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.5.27",
-    "@eslint/eslintrc": "^3",
     "prisma": "^6.16.0",
-    "tsx": "^4.20.0"
+    "tailwindcss": "^4",
+    "tsx": "^4.20.0",
+    "typescript": "^5"
   },
   "engines": {
     "node": ">=20.9"

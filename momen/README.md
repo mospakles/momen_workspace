@@ -20,31 +20,44 @@ expenses, fitting photos, to-dos, issues and monthly profit & loss.
 fabric you bought for that order), add it on the **order** so you see that order's profit. General
 stock and running costs (rent, fuel, a roll of lining for many outfits, a new machine) go in **Expenses**.
 
-## Running it
+## How it runs
 
-Needs Node 20.9+ (this repo has `.nvmrc` → `nvm use`).
+One Next.js app: the pages *and* the backend (server actions that save data, the photo API, login)
+deploy together to **Vercel** as serverless functions — there is no separate server to run.
+
+- **Database:** Postgres on Neon (Vercel Marketplace), region Frankfurt. `DATABASE_URL` (pooled) and
+  `DATABASE_URL_UNPOOLED` (for migrations) are added to the Vercel project automatically.
+- **Photos:** private Vercel Blob store `momen-photos`. Photos are shrunk in the browser before upload
+  and are only viewable through `/api/photos/…` after logging in. Without `BLOB_READ_WRITE_TOKEN`
+  (e.g. local dev) they're saved to `./uploads` instead.
+- **Login:** `APP_PASSWORD` and `SESSION_SECRET` are set in Vercel → Project → Settings → Environment Variables.
+- **Timezone:** `APP_TIMEZONE` (default `Africa/Lagos`) so "today" and month boundaries match the shop.
+
+## Deploying
+
+Every deploy runs `npm run vercel-build` = `prisma generate && prisma migrate deploy && next build`,
+so database changes in `prisma/migrations` are applied automatically.
 
 ```bash
-cp .env.example .env      # then set APP_PASSWORD and SESSION_SECRET
-npm install
-npm run db:migrate        # creates prisma/momen.db
-npm run seed              # optional: demo data to look around
-npm run dev               # http://localhost:3000
+vercel --prod        # from this folder; or connect a GitHub repo in Vercel for deploy-on-push
 ```
 
-Use on your phone (same Wi-Fi): run `npm run dev -- -H 0.0.0.0` and open `http://<your-computer-ip>:3000`.
+## Local development
 
-For everyday use run the production build: `npm run build && npm start`.
+Needs Node 20.9+ (`nvm use`).
+
+```bash
+npm install
+vercel env pull .env  # downloads DATABASE_URL etc. from Vercel (asks once to log in)
+npm run dev           # http://localhost:3000
+```
+
+⚠️ The pulled `DATABASE_URL` is your **real** shop database. For experiments, create a branch in the
+Neon console and use its URLs instead.
 
 ## Your data
 
-- Everything lives in `prisma/momen.db` (SQLite) and photos in `uploads/`. Neither is committed to git.
-- `npm run backup` copies both into `backups/<date>/`. Copy that folder to Google Drive or a flash drive regularly.
+- `npm run backup` exports every table to `backups/momen-<date>.json`. Do it regularly and keep a copy
+  on Google Drive or a flash drive. Neon also keeps point-in-time history (restore window depends on plan).
 - `npm run db:studio` opens a spreadsheet-like view of the raw data.
-- `npm run db:reset` **wipes everything** (handy after trying the demo data).
-
-## Hosting online later
-
-SQLite + local photo files suit a single computer or a small VPS. To host on Vercel or similar,
-switch `provider` in `prisma/schema.prisma` to `postgresql` (e.g. Neon or Supabase) and move photo
-storage to a bucket (S3, Cloudflare R2, Vercel Blob) in `src/actions/orders.ts`.
+- `npm run seed` adds demo data — only use it on a test branch, never the real database.

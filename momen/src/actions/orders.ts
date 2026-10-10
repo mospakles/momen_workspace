@@ -2,12 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { date, int, reqStr, str } from "@/lib/form";
-import { UPLOAD_DIR } from "@/lib/uploads";
+import { removePhoto, storePhoto } from "@/lib/uploads";
 
 function touch(orderId: number) {
   revalidatePath(`/orders/${orderId}`);
@@ -72,7 +71,7 @@ export async function setOrderStatus(id: number, status: string) {
 export async function deleteOrder(id: number) {
   const photos = await db.photo.findMany({ where: { orderId: id } });
   await db.order.delete({ where: { id } });
-  await Promise.all(photos.map((p) => unlink(path.join(UPLOAD_DIR, p.filename)).catch(() => {})));
+  await Promise.all(photos.map(removePhoto));
   revalidatePath("/orders");
   redirect("/orders");
 }
@@ -141,20 +140,18 @@ const ALLOWED = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".g
 
 export async function addPhotos(orderId: number, fd: FormData) {
   const files = fd.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
-  await mkdir(UPLOAD_DIR, { recursive: true });
   for (const file of files) {
     const ext = path.extname(file.name).toLowerCase() || ".jpg";
     if (!ALLOWED.has(ext)) continue;
     const filename = `${orderId}-${randomUUID()}${ext}`;
-    await writeFile(path.join(UPLOAD_DIR, filename), Buffer.from(await file.arrayBuffer()));
-    await db.photo.create({ data: { orderId, filename, kind: str(fd, "kind") ?? "FITTING", caption: str(fd, "caption") } });
+    const url = await storePhoto(filename, Buffer.from(await file.arrayBuffer()), file.type || "image/jpeg");
+    await db.photo.create({ data: { orderId, filename, url, kind: str(fd, "kind") ?? "FITTING", caption: str(fd, "caption") } });
   }
   touch(orderId);
 }
 
 export async function deletePhoto(orderId: number, id: number) {
-  const p = await db.photo.delete({ where: { id } });
-  await unlink(path.join(UPLOAD_DIR, p.filename)).catch(() => {});
+  await removePhoto(await db.photo.delete({ where: { id } }));
   touch(orderId);
 }
 

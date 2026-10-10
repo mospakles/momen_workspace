@@ -5,8 +5,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled connection, used by the app
+  directUrl = env("DATABASE_URL_UNPOOLED") // direct connection, used for migrations
 }
 
 model Customer {
@@ -120,6 +121,7 @@ model Photo {
   orderId   Int
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   filename  String
+  url       String? // Vercel Blob URL; null when stored on local disk
   kind      String   @default("FIT") // STYLE, FABRIC, FITTING, FINISHED
   caption   String?
   createdAt DateTime @default(now())

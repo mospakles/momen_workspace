@@ -25,7 +25,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   if (filter === "overdue") Object.assign(where, { status: { in: OPEN_STATUSES }, dueDate: { lt: today } });
   if (filter === "delivered") where.status = "DELIVERED";
   if (filter === "owing") where.status = { not: "CANCELLED" };
-  if (q) where.OR = [{ title: { contains: q } }, { customer: { name: { contains: q } } }];
+  if (q) where.OR = [{ title: { contains: q, mode: "insensitive" } }, { customer: { name: { contains: q, mode: "insensitive" } } }];
 
   let orders = await db.order.findMany({
     where,

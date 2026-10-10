@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { date, reqStr, str } from "@/lib/form";
 import { MEASUREMENT_FIELDS } from "@/lib/constants";
+import { removePhoto } from "@/lib/uploads";
 
 function customerData(fd: FormData) {
   return {
@@ -32,7 +33,9 @@ export async function updateCustomer(id: number, fd: FormData) {
 }
 
 export async function deleteCustomer(id: number) {
+  const photos = await db.photo.findMany({ where: { order: { customerId: id } } });
   await db.customer.delete({ where: { id } });
+  await Promise.all(photos.map(removePhoto));
   revalidatePath("/customers");
   redirect("/customers");
 }

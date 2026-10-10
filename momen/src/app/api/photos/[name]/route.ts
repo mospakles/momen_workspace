@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { UPLOAD_DIR } from "@/lib/uploads";
+import { db } from "@/lib/db";
+import { loadPhoto } from "@/lib/uploads";
 
 const TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -13,17 +13,14 @@ const TYPES: Record<string, string> = {
 };
 
 export async function GET(_req: Request, { params }: { params: Promise<{ name: string }> }) {
-  const { name } = await params;
-  const safe = path.basename(name); // block ../ traversal
-  try {
-    const buf = await readFile(path.join(UPLOAD_DIR, safe));
-    return new Response(new Uint8Array(buf), {
-      headers: {
-        "Content-Type": TYPES[path.extname(safe).toLowerCase()] ?? "application/octet-stream",
-        "Cache-Control": "private, max-age=31536000, immutable",
-      },
-    });
-  } catch {
-    return new Response("Not found", { status: 404 });
-  }
+  const filename = path.basename((await params).name);
+  const photo = await db.photo.findFirst({ where: { filename } });
+  const data = photo && (await loadPhoto(photo));
+  if (!data) return new Response("Not found", { status: 404 });
+  return new Response(data as BodyInit, {
+    headers: {
+      "Content-Type": TYPES[path.extname(filename).toLowerCase()] ?? "application/octet-stream",
+      "Cache-Control": "private, max-age=31536000, immutable",
+    },
+  });
 }
