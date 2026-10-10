@@ -1,0 +1,152 @@
+// Momen shop database. Money is stored in whole Naira (Int).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id           Int           @id @default(autoincrement())
+  name         String
+  phone        String?
+  email        String?
+  address      String?
+  birthday     DateTime?
+  instagram    String?
+  referredBy   String?
+  // General notes: preferences, how they like their fit, temperament, etc.
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  measurements Measurement[]
+  orders       Order[]
+  issues       Issue[]
+}
+
+model Measurement {
+  id         Int      @id @default(autoincrement())
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  takenAt    DateTime @default(now())
+  unit       String   @default("in")
+  // JSON object: { "Bust": "38", "Waist": "30", ... }
+  values     String
+  notes      String?
+  orders     Order[]
+}
+
+model Order {
+  id            Int              @id @default(autoincrement())
+  customerId    Int
+  customer      Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  measurementId Int?
+  measurement   Measurement?     @relation(fields: [measurementId], references: [id], onDelete: SetNull)
+  title         String // e.g. "Aso-ebi gown", "Corset dress"
+  description   String?
+  fabricSource  String? // "Customer's fabric" / "Bought by me"
+  quantity      Int              @default(1)
+  price         Int              @default(0) // agreed amount charged to the customer
+  status        String           @default("PENDING") // PENDING, CUTTING, SEWING, FITTING, READY, DELIVERED, CANCELLED
+  orderDate     DateTime         @default(now())
+  fittingDate   DateTime?
+  dueDate       DateTime?
+  deliveredAt   DateTime?
+  fitNotes      String? // comments about the fit
+  problems      String? // anything that went wrong on this order
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  payments      Payment[]
+  promises      PaymentPromise[]
+  costs         OrderCost[]
+  photos        Photo[]
+  tasks         Task[]
+  issues        Issue[]
+}
+
+model Payment {
+  id      Int      @id @default(autoincrement())
+  orderId Int
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount  Int
+  paidAt  DateTime @default(now())
+  method  String? // Cash, Transfer, POS
+  note    String?
+}
+
+// "I'll pay the balance on Friday"
+model PaymentPromise {
+  id           Int      @id @default(autoincrement())
+  orderId      Int
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount       Int?
+  promisedDate DateTime
+  kept         Boolean  @default(false)
+  note         String?
+  createdAt    DateTime @default(now())
+}
+
+// Direct costs of making a specific outfit: tailor pay, embroidery, buttonholes, fabric, lining...
+model OrderCost {
+  id       Int      @id @default(autoincrement())
+  orderId  Int
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  category String // TAILOR, EMBROIDERY, BUTTONHOLE, FABRIC, LINING, ACCESSORIES, BEADING, TRANSPORT, OTHER
+  amount   Int
+  date     DateTime @default(now())
+  paidTo   String?
+  note     String?
+}
+
+// Shop expenses not tied to one outfit.
+model Expense {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @default(now())
+  kind        String   @default("OPERATING") // OPERATING or CAPITAL (big buys: machines, equipment)
+  category    String // MATERIALS, ACCESSORIES, EQUIPMENT, RENT, UTILITIES, FUEL, TRANSPORT, SALARY, MARKETING, REPAIRS, OTHER
+  description String
+  amount      Int
+  vendor      String?
+  note        String?
+  createdAt   DateTime @default(now())
+}
+
+model Photo {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  filename  String
+  kind      String   @default("FIT") // STYLE, FABRIC, FITTING, FINISHED
+  caption   String?
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id        Int       @id @default(autoincrement())
+  title     String
+  dueDate   DateTime?
+  done      Boolean   @default(false)
+  doneAt    DateTime?
+  orderId   Int?
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+}
+
+// Anything that went wrong: with a customer, an order, a tailor, a supplier...
+model Issue {
+  id         Int       @id @default(autoincrement())
+  date       DateTime  @default(now())
+  title      String
+  details    String?
+  resolution String?
+  resolved   Boolean   @default(false)
+  customerId Int?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  orderId    Int?
+  order      Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+}

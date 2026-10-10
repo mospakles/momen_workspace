@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #faf7f2;
+  --color-paper: #ffffff;
+  --color-line: #e8e1d6;
+  --color-ink: #2b1d2f;
+  --color-muted: #7a6f74;
+  --color-plum: #6b2d5c;
+  --color-plum-dark: #521f46;
+  --color-plum-soft: #f5e9f1;
+  --color-gold: #b8893a;
+  --font-display: "Georgia", "Times New Roman", serif;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@layer components {
+  .card {
+    @apply bg-paper border border-line rounded-xl p-4 shadow-sm;
+  }
+  .label {
+    @apply block text-xs font-medium uppercase tracking-wide text-muted mb-1;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-plum focus:ring-2 focus:ring-plum/20;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium text-ink hover:bg-cream cursor-pointer;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-plum px-4 py-2 text-sm font-medium text-white hover:bg-plum-dark cursor-pointer;
+  }
+  .btn-sm {
+    @apply px-2 py-1 text-xs;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-lg px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 cursor-pointer;
+  }
+  .link {
+    @apply text-plum hover:underline;
+  }
+  .table {
+    @apply w-full text-sm;
+  }
+  .table th {
+    @apply text-left text-xs font-medium uppercase tracking-wide text-muted px-3 py-2 border-b border-line whitespace-nowrap;
+  }
+  .table td {
+    @apply px-3 py-2 border-b border-line/60 align-top;
+  }
+  .h1 {
+    @apply font-display text-2xl sm:text-3xl text-ink;
+  }
+  .h2 {
+    @apply font-display text-lg text-ink;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .card {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+}
