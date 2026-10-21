@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { bool, date, int, reqStr, str } from "@/lib/form";
+import { toMonth } from "@/lib/format";
 
 // ---- Expenses ----
 
@@ -26,9 +28,23 @@ export async function addExpense(fd: FormData) {
   revalidatePath("/");
 }
 
+export async function updateExpense(id: number, fd: FormData) {
+  const e = await db.expense.update({ where: { id }, data: expenseData(fd) });
+  revalidatePath("/expenses");
+  revalidatePath("/");
+  redirect(`/expenses?month=${toMonth(e.date)}`);
+}
+
 export async function deleteExpense(id: number) {
   await db.expense.delete({ where: { id } });
   revalidatePath("/expenses");
+}
+
+export async function deleteExpenseAndReturn(id: number) {
+  const e = await db.expense.delete({ where: { id } });
+  revalidatePath("/expenses");
+  revalidatePath("/");
+  redirect(`/expenses?month=${toMonth(e.date)}`);
 }
 
 // ---- Tasks ----

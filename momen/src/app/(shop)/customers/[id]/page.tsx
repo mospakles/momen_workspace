@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { fmtDate, fmtShortDate, money, toInputDate } from "@/lib/format";
+import { fmtDate, fmtShortDate, money, normalizePhone, reminderText, toInputDate, whatsappLink } from "@/lib/format";
 import { deliveryDelta, orderTotals } from "@/lib/orders";
 import { deleteMeasurement } from "@/actions/customers";
 import { addIssue } from "@/actions/misc";
@@ -11,8 +11,9 @@ import { Empty, PageHeader, Pill, Section, Stat, StatusBadge, BackLink } from "@
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CustomerPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ existing?: string }> }) {
   const id = Number((await params).id);
+  const { existing } = await searchParams;
   const c = await db.customer.findUnique({
     where: { id },
     include: {
@@ -22,6 +23,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
     },
   });
   if (!c) notFound();
+
+  const phone = normalizePhone(c.phone);
+  const duplicates = phone
+    ? (await db.customer.findMany({ where: { id: { not: c.id }, phone: { not: null } } })).filter((d) => normalizePhone(d.phone) === phone)
+    : [];
 
   const active = c.orders.filter((o) => o.status !== "CANCELLED");
   const totals = active.map(orderTotals);
@@ -35,13 +41,24 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   return (
     <div className="space-y-6">
       <BackLink href="/customers">Customers</BackLink>
+      {existing && (
+        <p className="card border-amber-300 bg-amber-50 text-sm text-amber-900">
+          {c.name} is already saved with this phone number, so no new customer was created. This is their existing record.
+        </p>
+      )}
+      {duplicates.length > 0 && (
+        <p className="card border-amber-300 bg-amber-50 text-sm text-amber-900">
+          Possible duplicate: {duplicates.map((d) => d.name).join(", ")} has the same phone number.{" "}
+          <Link href={`/customers/${c.id}/edit`} className="link font-medium">Merge them</Link>
+        </p>
+      )}
       <PageHeader
         title={c.name}
         subtitle={
           <span className="flex flex-wrap gap-x-4 gap-y-1">
             {c.phone && <a href={`tel:${c.phone}`} className="link">{c.phone}</a>}
             {c.phone && (
-              <a href={`https://wa.me/${c.phone.replace(/\D/g, "").replace(/^0/, "234")}`} target="_blank" className="link">WhatsApp</a>
+              <a href={whatsappLink(c.phone)} target="_blank" className="link">WhatsApp</a>
             )}
             {c.email && <a href={`mailto:${c.email}`} className="link">{c.email}</a>}
             {c.instagram && <span>{c.instagram}</span>}
@@ -51,6 +68,15 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         actions={
           <>
             <Link href={`/orders/new?customerId=${c.id}`} className="btn-primary">+ New order</Link>
+            {c.phone && owes > 0 && (
+              <a
+                href={whatsappLink(c.phone, reminderText(c.name, owes, active.filter((o) => orderTotals(o).balance > 0).map((o) => o.title)))}
+                target="_blank"
+                className="btn"
+              >
+                Remind to pay
+              </a>
+            )}
             <Link href={`/customers/${c.id}/edit`} className="btn">Edit</Link>
           </>
         }

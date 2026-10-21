@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { fmtDate, money } from "@/lib/format";
+import { fmtDate, money, normalizePhone } from "@/lib/format";
 import { orderTotals } from "@/lib/orders";
 import { Empty, PageHeader, Pill } from "@/components/ui";
 
@@ -13,6 +13,13 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
     include: { orders: { include: { payments: true, costs: true } }, issues: { where: { resolved: false } } },
     orderBy: { name: "asc" },
   });
+
+  const phoneCounts = customers.reduce<Record<string, number>>((acc, c) => {
+    const p = normalizePhone(c.phone);
+    if (p) acc[p] = (acc[p] ?? 0) + 1;
+    return acc;
+  }, {});
+  const isDuplicate = (phone: string | null) => (phoneCounts[normalizePhone(phone) ?? ""] ?? 0) > 1;
 
   return (
     <div>
@@ -46,6 +53,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                     <td>
                       <Link href={`/customers/${c.id}`} className="link font-medium">{c.name}</Link>
                       {c.issues.length > 0 && <span className="ml-2"><Pill tone="red">issue</Pill></span>}
+                      {isDuplicate(c.phone) && <Link href={`/customers/${c.id}/edit`} className="ml-2"><Pill tone="amber">duplicate?</Pill></Link>}
                     </td>
                     <td className="whitespace-nowrap">{c.phone ?? "—"}</td>
                     <td className="text-right tabular-nums">{active.length}</td>

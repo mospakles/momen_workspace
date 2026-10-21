@@ -74,3 +74,28 @@ export function shiftMonth(ym: string, delta: number) {
   start.setMonth(start.getMonth() + delta);
   return `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`;
 }
+
+/** Phone in a comparable form: digits only, +234 / 234 prefix turned back into a leading 0. */
+export function normalizePhone(p: string | null | undefined) {
+  if (!p) return null;
+  const digits = p.replace(/\D/g, "").replace(/^234/, "0");
+  return digits.length >= 7 ? digits : null;
+}
+
+/** yyyy-mm for the month picker */
+export function toMonth(d: Date | string) {
+  return toInputDate(d).slice(0, 7);
+}
+
+/** wa.me link for a Nigerian number, optionally with a message typed in. */
+export function whatsappLink(phone: string, text?: string) {
+  const n = phone.replace(/\D/g, "").replace(/^0/, "234");
+  return `https://wa.me/${n}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
+}
+
+/** A polite balance reminder, ready to send on WhatsApp. */
+export function reminderText(name: string, balance: number, outfits: string[]) {
+  const first = name.trim().split(/\s+/)[0];
+  const what = outfits.length === 1 ? `your ${outfits[0]}` : `your ${outfits.length} outfits (${outfits.join(", ")})`;
+  return `Hello ${first}, I hope you're doing well. This is a gentle reminder that there's a balance of ${money(balance)} on ${what}. You can pay by transfer whenever you're ready. Thank you so much!`;
+}

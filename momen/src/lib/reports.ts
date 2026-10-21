@@ -23,7 +23,7 @@ export async function monthSummary(month: string) {
 
   const income = sum(payments, (p) => p.amount);
   const directCosts = sum(costs, (c) => c.amount);
-  const operating = expenses.filter((e) => e.kind === "OPERATING");
+  const operating = expenses.filter((e) => e.kind !== "CAPITAL");
   const capital = expenses.filter((e) => e.kind === "CAPITAL");
   const operatingTotal = sum(operating, (e) => e.amount);
   const capitalTotal = sum(capital, (e) => e.amount);
@@ -46,4 +46,13 @@ export async function monthSummary(month: string) {
     bookedValue: sum(booked, (o) => o.price),
     delivered,
   };
+}
+
+/** Expense types and categories used so far, for the expense form's suggestions. */
+export async function usedExpenseChoices() {
+  const [kinds, categories] = await Promise.all([
+    db.expense.findMany({ distinct: ["kind"], select: { kind: true } }),
+    db.expense.findMany({ distinct: ["category"], select: { category: true } }),
+  ]);
+  return { usedKinds: kinds.map((k) => k.kind).sort(), usedCategories: categories.map((c) => c.category).sort() };
 }

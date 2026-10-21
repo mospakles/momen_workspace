@@ -1,6 +1,7 @@
 import type { Customer } from "@prisma/client";
 import { toInputDate } from "@/lib/format";
 import { Field } from "./ui";
+import { SubmitButton } from "./SubmitButton";
 
 export function CustomerForm({ action, customer, submitLabel }: { action: (fd: FormData) => Promise<void>; customer?: Customer; submitLabel: string }) {
   return (
@@ -31,7 +32,7 @@ export function CustomerForm({ action, customer, submitLabel }: { action: (fd: F
           <textarea name="notes" rows={4} className="input" defaultValue={customer?.notes ?? ""} />
         </Field>
       </div>
-      <button className="btn-primary">{submitLabel}</button>
+      <SubmitButton>{submitLabel}</SubmitButton>
     </form>
   );
 }

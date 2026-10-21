@@ -22,6 +22,7 @@ export const ORDER_COST_CATEGORIES = [
   { value: "OTHER", label: "Other" },
 ] as const;
 
+// Any other type typed in by hand counts as a running expense, like OPERATING.
 export const EXPENSE_KINDS = [
   { value: "OPERATING", label: "Normal / day-to-day" },
   { value: "CAPITAL", label: "Big buy (equipment, machines)" },

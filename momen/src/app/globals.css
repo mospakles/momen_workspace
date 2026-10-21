@@ -41,6 +41,9 @@ body {
   .btn-danger {
     @apply inline-flex items-center justify-center rounded-lg px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 cursor-pointer;
   }
+  .btn-danger-solid {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 cursor-pointer;
+  }
   .link {
     @apply text-plum hover:underline;
   }

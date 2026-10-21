@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { date, reqStr, str } from "@/lib/form";
 import { MEASUREMENT_FIELDS } from "@/lib/constants";
+import { normalizePhone } from "@/lib/format";
 import { removePhoto } from "@/lib/uploads";
 
 function customerData(fd: FormData) {
@@ -20,14 +21,29 @@ function customerData(fd: FormData) {
   };
 }
 
+/** Another customer with the same phone number, if any. */
+async function findByPhone(phone: string | null, exceptId?: number) {
+  const target = normalizePhone(phone);
+  if (!target) return null;
+  const withPhone = await db.customer.findMany({ where: { phone: { not: null }, id: exceptId ? { not: exceptId } : undefined } });
+  return withPhone.find((c) => normalizePhone(c.phone) === target) ?? null;
+}
+
 export async function createCustomer(fd: FormData) {
-  const c = await db.customer.create({ data: customerData(fd) });
+  const data = customerData(fd);
+  // Same phone = same person. Open the existing record instead of creating a duplicate.
+  const existing = await findByPhone(data.phone);
+  if (existing) redirect(`/customers/${existing.id}?existing=1`);
+  const c = await db.customer.create({ data });
   revalidatePath("/customers");
   redirect(`/customers/${c.id}`);
 }
 
 export async function updateCustomer(id: number, fd: FormData) {
-  await db.customer.update({ where: { id }, data: customerData(fd) });
+  const data = customerData(fd);
+  const clash = await findByPhone(data.phone, id);
+  if (clash) redirect(`/customers/${id}/edit?clash=${clash.id}`);
+  await db.customer.update({ where: { id }, data });
   revalidatePath(`/customers/${id}`);
   redirect(`/customers/${id}`);
 }
@@ -38,6 +54,34 @@ export async function deleteCustomer(id: number) {
   await Promise.all(photos.map(removePhoto));
   revalidatePath("/customers");
   redirect("/customers");
+}
+
+/** Move everything from the duplicate onto `keepId`, fill any blank details, then delete the duplicate. */
+export async function mergeCustomer(keepId: number, fd: FormData) {
+  const dupId = Number(fd.get("mergeId"));
+  if (!dupId || dupId === keepId) throw new Error("Pick the duplicate to merge in");
+  const [keep, dup] = await Promise.all([
+    db.customer.findUniqueOrThrow({ where: { id: keepId } }),
+    db.customer.findUniqueOrThrow({ where: { id: dupId } }),
+  ]);
+  const fields = ["phone", "email", "address", "birthday", "instagram", "referredBy"] as const;
+  const filled = Object.fromEntries(fields.filter((f) => keep[f] == null && dup[f] != null).map((f) => [f, dup[f]]));
+  const notes = [keep.notes, dup.notes].filter(Boolean).join("\n\n") || null;
+
+  await db.$transaction([
+    db.order.updateMany({ where: { customerId: dupId }, data: { customerId: keepId } }),
+    db.measurement.updateMany({ where: { customerId: dupId }, data: { customerId: keepId } }),
+    db.issue.updateMany({ where: { customerId: dupId }, data: { customerId: keepId } }),
+    db.customer.update({
+      where: { id: keepId },
+      // Keep the earliest "customer since" date.
+      data: { ...filled, notes, createdAt: dup.createdAt < keep.createdAt ? dup.createdAt : keep.createdAt },
+    }),
+    db.customer.delete({ where: { id: dupId } }),
+  ]);
+  revalidatePath("/customers");
+  revalidatePath("/");
+  redirect(`/customers/${keepId}`);
 }
 
 function measurementValues(fd: FormData) {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { OPEN_STATUSES } from "@/lib/constants";
-import { addDays, currentMonth, daysUntil, fmtShortDate, money, monthRange, relativeDays, startOfDay, toInputDate } from "@/lib/format";
+import { addDays, currentMonth, daysUntil, fmtShortDate, money, monthRange, relativeDays, reminderText, startOfDay, toInputDate, whatsappLink } from "@/lib/format";
 import { orderTotals } from "@/lib/orders";
 import { Empty, Pill, Section, Stat, StatusBadge } from "@/components/ui";
 import { TaskList } from "@/components/TaskList";
@@ -40,9 +40,24 @@ export default async function TodayPage() {
   // Balances owed across all non-cancelled orders, including delivered ones.
   const owing = await db.order.findMany({
     where: { status: { not: "CANCELLED" } },
-    include: { payments: true, costs: true },
+    include: { customer: true, payments: true, costs: true },
   });
   const totalOwed = owing.reduce((s, o) => s + Math.max(0, orderTotals(o).balance), 0);
+
+  // One row per customer who owes, biggest balance first.
+  type Debtor = { customer: (typeof owing)[number]["customer"]; balance: number; outfits: string[]; delivered: boolean };
+  const debtors = Object.values(
+    owing.reduce<Record<number, Debtor>>((acc, o) => {
+      const { balance } = orderTotals(o);
+      if (balance <= 0) return acc;
+      const d = (acc[o.customerId] ??= { customer: o.customer, balance: 0, outfits: [], delivered: false });
+      d.balance += balance;
+      d.outfits.push(o.title);
+      // Already delivered but not fully paid: the hardest money to collect.
+      if (o.status === "DELIVERED") d.delivered = true;
+      return acc;
+    }, {}),
+  ).sort((a, b) => b.balance - a.balance);
 
   const overdue = openOrders.filter((o) => o.dueDate && o.dueDate < today);
   const dueSoon = openOrders.filter((o) => o.dueDate && o.dueDate >= today && o.dueDate < weekAhead);
@@ -68,7 +83,7 @@ export default async function TodayPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat label="Received this month" value={money(monthPayments._sum.amount)} />
-        <Stat label="Customers owe you" value={money(totalOwed)} tone={totalOwed > 0 ? "bad" : undefined} hint={<Link href="/orders?filter=owing" className="link">See who</Link>} />
+        <Stat label="Customers owe you" value={money(totalOwed)} tone={totalOwed > 0 ? "bad" : undefined} hint={<a href="#owing" className="link">See who</a>} />
         <Stat label="Open orders" value={openOrders.length} hint={`${overdue.length} overdue`} />
         <Stat label="Today" value={<span className="text-base">In {money(todayIn)} · Out {money(todayOut)}</span>} hint={unresolvedIssues ? <Link href="/issues" className="link">{unresolvedIssues} unresolved issue(s)</Link> : "No open issues"} />
       </div>
@@ -110,6 +125,35 @@ export default async function TodayPage() {
             <button className="btn-primary">Add</button>
           </form>
           <TaskList tasks={tasks} />
+        </Section>
+
+        <Section title="Who owes you" actions={<Link href="/orders?filter=owing" className="link text-sm">By order</Link>}>
+          <div id="owing" className="scroll-mt-4" />
+          {debtors.length === 0 ? (
+            <Empty>Everyone is paid up. 🎉</Empty>
+          ) : (
+            <ul className="divide-y divide-line/60">
+              {debtors.map((d) => (
+                <li key={d.customer.id} className="py-2 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link href={`/customers/${d.customer.id}`} className="font-medium link">{d.customer.name}</Link>
+                    <span className="text-muted"> · {d.outfits.join(", ")}</span>
+                    {d.delivered && <div className="mt-0.5"><Pill tone="red">delivered, not paid</Pill></div>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm tabular-nums font-medium text-red-700">{money(d.balance)}</span>
+                    {d.customer.phone ? (
+                      <a href={whatsappLink(d.customer.phone, reminderText(d.customer.name, d.balance, d.outfits))} target="_blank" className="btn btn-sm">
+                        Remind
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted">no phone</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </Section>
 
         <Section title="Payment promises">

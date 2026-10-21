@@ -1,20 +1,30 @@
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { EXPENSE_CATEGORIES, EXPENSE_KINDS, labelFor } from "@/lib/constants";
-import { currentMonth, fmtDate, money, monthLabel, monthRange, toInputDate } from "@/lib/format";
+import { usedExpenseChoices } from "@/lib/reports";
+import { currentMonth, fmtDate, money, monthLabel, monthRange } from "@/lib/format";
 import { addExpense, deleteExpense } from "@/actions/misc";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { ExpenseForm } from "@/components/ExpenseForm";
 import { MonthPicker } from "@/components/MonthPicker";
-import { Empty, Field, PageHeader, Pill, Section, Select, Stat } from "@/components/ui";
+import { Empty, PageHeader, Pill, Section, Stat } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function ExpensesPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const month = (await searchParams).month || currentMonth();
   const { start, end } = monthRange(month);
-  const expenses = await db.expense.findMany({ where: { date: { gte: start, lt: end } }, orderBy: { date: "desc" } });
+  const [expenses, used] = await Promise.all([
+    db.expense.findMany({ where: { date: { gte: start, lt: end } }, orderBy: { date: "desc" } }),
+    usedExpenseChoices(),
+  ]);
 
-  const operating = expenses.filter((e) => e.kind === "OPERATING").reduce((s, e) => s + e.amount, 0);
-  const capital = expenses.filter((e) => e.kind === "CAPITAL").reduce((s, e) => s + e.amount, 0);
+  const total = expenses.reduce((s, e) => s + e.amount, 0);
+  // Day-to-day and big buys always show; any custom type appears once it's used this month.
+  const byKind = Object.entries(
+    expenses.reduce<Record<string, number>>((acc, e) => ((acc[e.kind] = (acc[e.kind] ?? 0) + e.amount), acc), { OPERATING: 0, CAPITAL: 0 }),
+  );
+  const kindLabel = (k: string) => ({ OPERATING: "Day-to-day", CAPITAL: "Big buys" })[k] ?? k;
   const byCategory = Object.entries(
     expenses.reduce<Record<string, number>>((acc, e) => ((acc[e.category] = (acc[e.category] ?? 0) + e.amount), acc), {}),
   ).sort((a, b) => b[1] - a[1]);
@@ -24,22 +34,12 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
       <PageHeader title="Expenses" subtitle="Shop spending not tied to one outfit. (Tailor pay, embroidery etc. for a specific order go on the order.)" actions={<MonthPicker month={month} basePath="/expenses" />} />
 
       <Section title="Add expense">
-        <form action={addExpense} className="grid grid-cols-2 lg:grid-cols-6 gap-3 items-end">
-          <Field label="Date"><input name="date" type="date" className="input" defaultValue={toInputDate(new Date())} /></Field>
-          <Field label="Type"><Select name="kind" options={EXPENSE_KINDS} defaultValue="OPERATING" /></Field>
-          <Field label="Category"><Select name="category" options={EXPENSE_CATEGORIES} defaultValue="MATERIALS" /></Field>
-          <Field label="Amount (₦)"><input name="amount" inputMode="numeric" className="input" required /></Field>
-          <Field label="What was it?" className="col-span-2"><input name="description" className="input" required placeholder="e.g. 10 yards lining, threads & zips" /></Field>
-          <Field label="Vendor / where" className="col-span-2 lg:col-span-3"><input name="vendor" className="input" /></Field>
-          <Field label="Note" className="col-span-2 lg:col-span-2"><input name="note" className="input" /></Field>
-          <button className="btn-primary col-span-2 lg:col-span-1">Add</button>
-        </form>
+        <ExpenseForm action={addExpense} submitLabel="Add" {...used} />
       </Section>
 
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="Day-to-day" value={money(operating)} />
-        <Stat label="Big buys" value={money(capital)} />
-        <Stat label="Total" value={money(operating + capital)} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {byKind.map(([k, amt]) => <Stat key={k} label={kindLabel(k)} value={money(amt)} />)}
+        <Stat label="Total" value={money(total)} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -55,8 +55,8 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
                     <tr key={e.id}>
                       <td className="whitespace-nowrap">{fmtDate(e.date)}</td>
                       <td>
-                        {e.description}
-                        {e.kind === "CAPITAL" && <span className="ml-2"><Pill tone="amber">big buy</Pill></span>}
+                        <Link href={`/expenses/${e.id}`} className="link">{e.description}</Link>
+                        {e.kind !== "OPERATING" && <span className="ml-2"><Pill tone={e.kind === "CAPITAL" ? "amber" : "plum"}>{e.kind === "CAPITAL" ? "big buy" : labelFor(EXPENSE_KINDS, e.kind)}</Pill></span>}
                         {(e.vendor || e.note) && <div className="text-xs text-muted">{[e.vendor, e.note].filter(Boolean).join(" · ")}</div>}
                       </td>
                       <td className="text-muted whitespace-nowrap">{labelFor(EXPENSE_CATEGORIES, e.category)}</td>
@@ -75,7 +75,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
               {byCategory.map(([cat, amt]) => (
                 <li key={cat}>
                   <div className="flex justify-between"><span>{labelFor(EXPENSE_CATEGORIES, cat)}</span><span className="tabular-nums">{money(amt)}</span></div>
-                  <div className="h-1.5 bg-cream rounded mt-1"><div className="h-1.5 bg-plum rounded" style={{ width: `${(amt / (operating + capital)) * 100}%` }} /></div>
+                  <div className="h-1.5 bg-cream rounded mt-1"><div className="h-1.5 bg-plum rounded" style={{ width: `${(amt / total) * 100}%` }} /></div>
                 </li>
               ))}
             </ul>
