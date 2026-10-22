@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { orderWho } from "@/lib/orders";
 import type { Customer, Order, Task } from "@prisma/client";
 import { deleteTask, toggleTask } from "@/actions/misc";
 import { daysUntil, fmtShortDate } from "@/lib/format";
 import { Empty } from "./ui";
 
-type T = Task & { order: (Order & { customer: Customer }) | null };
+type T = Task & { order: (Order & { customer: Customer | null }) | null };
 
 export function TaskList({ tasks, showOrder = true }: { tasks: T[]; showOrder?: boolean }) {
   if (tasks.length === 0) return <Empty>Nothing on the list. 🎉</Empty>;
@@ -28,7 +29,7 @@ export function TaskList({ tasks, showOrder = true }: { tasks: T[]; showOrder?: 
                 {t.dueDate && <span className={late ? "text-red-700 font-medium" : ""}>{fmtShortDate(t.dueDate)}</span>}
                 {showOrder && t.order && (
                   <Link href={`/orders/${t.order.id}`} className="link">
-                    {t.order.customer.name} · {t.order.title}
+                    {orderWho(t.order)} · {t.order.title}
                   </Link>
                 )}
               </div>

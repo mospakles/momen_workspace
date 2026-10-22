@@ -7,11 +7,11 @@ export async function monthSummary(month: string) {
 
   const [payments, costs, expenses, booked, delivered] = await Promise.all([
     db.payment.findMany({ where: { paidAt: inMonth } }),
-    db.orderCost.findMany({ where: { date: inMonth } }),
+    db.orderCost.findMany({ where: { date: inMonth }, include: { order: { select: { purpose: true } } } }),
     db.expense.findMany({ where: { date: inMonth } }),
     db.order.findMany({ where: { orderDate: inMonth, status: { not: "CANCELLED" } } }),
     db.order.findMany({
-      where: { deliveredAt: inMonth, status: "DELIVERED" },
+      where: { deliveredAt: inMonth, status: "DELIVERED", purpose: "CUSTOMER" },
       include: { customer: true, costs: true, payments: true },
       orderBy: { deliveredAt: "asc" },
     }),
@@ -35,6 +35,8 @@ export async function monthSummary(month: string) {
     paymentsByMethod: group(payments, (p) => p.method ?? "Other", (p) => p.amount),
     directCosts,
     costsByCategory: group(costs, (c) => c.category, (c) => c.amount),
+    // Making outfits for modelling, adverts and ready-to-wear (already included in directCosts).
+    inHouseByPurpose: group(costs.filter((c) => c.order.purpose !== "CUSTOMER"), (c) => c.order.purpose, (c) => c.amount),
     operatingTotal,
     operatingByCategory: group(operating, (e) => e.category, (e) => e.amount),
     capital,

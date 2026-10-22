@@ -2,11 +2,13 @@ import type { Customer, Measurement, Order } from "@prisma/client";
 import { ORDER_STATUSES, PAYMENT_METHODS } from "@/lib/constants";
 import { fmtDate, toInputDate } from "@/lib/format";
 import { Field, Select } from "./ui";
+import { OrderPurposeFields } from "./OrderPurposeFields";
+import { SubmitButton } from "./SubmitButton";
 
 type Props = {
   action: (fd: FormData) => Promise<void>;
   order?: Order;
-  customers?: Customer[]; // only for new orders
+  customers?: Customer[];
   customerId?: number;
   measurements: Measurement[];
   submitLabel: string;
@@ -17,16 +19,7 @@ export function OrderForm({ action, order, customers, customerId, measurements, 
   return (
     <form action={action} className="card space-y-4 max-w-3xl">
       <div className="grid sm:grid-cols-2 gap-4">
-        {isNew && customers && (
-          <Field label="Customer *" className="sm:col-span-2">
-            <select name="customerId" className="input" required defaultValue={customerId ?? ""}>
-              <option value="">Choose a customer…</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</option>
-              ))}
-            </select>
-          </Field>
-        )}
+        {customers && <OrderPurposeFields customers={customers} purpose={order?.purpose} customerId={order ? order.customerId : customerId} />}
         <Field label="Outfit / style *" className="sm:col-span-2">
           <input name="title" className="input" required placeholder="e.g. Corset gown, Agbada, Aso-ebi blouse & wrapper" defaultValue={order?.title} />
         </Field>
@@ -43,7 +36,7 @@ export function OrderForm({ action, order, customers, customerId, measurements, 
         <Field label="Quantity">
           <input name="quantity" type="number" min={1} className="input" defaultValue={order?.quantity ?? 1} />
         </Field>
-        <Field label="Price charged (₦)">
+        <Field label="Price charged / expected sales (₦)">
           <input name="price" inputMode="numeric" className="input" defaultValue={order?.price || ""} placeholder="0" />
         </Field>
         <Field label="Status">
@@ -101,7 +94,7 @@ export function OrderForm({ action, order, customers, customerId, measurements, 
           <textarea name="notes" rows={2} className="input" defaultValue={order?.notes ?? ""} />
         </Field>
       </div>
-      <button className="btn-primary">{submitLabel}</button>
+      <SubmitButton>{submitLabel}</SubmitButton>
     </form>
   );
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { OPEN_STATUSES } from "@/lib/constants";
 import { addDays, currentMonth, daysUntil, fmtShortDate, money, monthRange, relativeDays, reminderText, startOfDay, toInputDate, whatsappLink } from "@/lib/format";
-import { orderTotals } from "@/lib/orders";
+import { orderTotals, orderWho } from "@/lib/orders";
 import { Empty, Pill, Section, Stat, StatusBadge } from "@/components/ui";
 import { TaskList } from "@/components/TaskList";
 import { addTask } from "@/actions/misc";
@@ -45,12 +45,13 @@ export default async function TodayPage() {
   const totalOwed = owing.reduce((s, o) => s + Math.max(0, orderTotals(o).balance), 0);
 
   // One row per customer who owes, biggest balance first.
-  type Debtor = { customer: (typeof owing)[number]["customer"]; balance: number; outfits: string[]; delivered: boolean };
+  type Debtor = { customer: NonNullable<(typeof owing)[number]["customer"]>; balance: number; outfits: string[]; delivered: boolean };
   const debtors = Object.values(
     owing.reduce<Record<number, Debtor>>((acc, o) => {
       const { balance } = orderTotals(o);
-      if (balance <= 0) return acc;
-      const d = (acc[o.customerId] ??= { customer: o.customer, balance: 0, outfits: [], delivered: false });
+      // In-house work never has a balance, so every order left here has a customer.
+      if (balance <= 0 || !o.customer) return acc;
+      const d = (acc[o.customer.id] ??= { customer: o.customer, balance: 0, outfits: [], delivered: false });
       d.balance += balance;
       d.outfits.push(o.title);
       // Already delivered but not fully paid: the hardest money to collect.
@@ -100,7 +101,7 @@ export default async function TodayPage() {
                 return (
                   <li key={o.id} className="py-2 flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <Link href={`/orders/${o.id}`} className="font-medium link">{o.customer.name}</Link>
+                      <Link href={`/orders/${o.id}`} className="font-medium link">{orderWho(o)}</Link>
                       <span className="text-muted"> · {o.title}</span>
                       <div className="text-xs mt-0.5 flex flex-wrap gap-1.5 items-center">
                         <StatusBadge status={o.status} />
@@ -166,7 +167,7 @@ export default async function TodayPage() {
                 return (
                   <li key={p.id} className="py-2 flex justify-between gap-3">
                     <div>
-                      <Link href={`/orders/${p.orderId}`} className="font-medium link">{p.order.customer.name}</Link>
+                      <Link href={`/orders/${p.orderId}`} className="font-medium link">{orderWho(p.order)}</Link>
                       <span className="text-muted"> · {p.order.title}</span>
                       {p.note && <div className="text-xs text-muted">{p.note}</div>}
                     </div>
@@ -189,7 +190,7 @@ export default async function TodayPage() {
               {fittings.map((o) => (
                 <li key={o.id} className="py-2 flex justify-between gap-3">
                   <div>
-                    <Link href={`/orders/${o.id}`} className="font-medium link">{o.customer.name}</Link>
+                    <Link href={`/orders/${o.id}`} className="font-medium link">{orderWho(o)}</Link>
                     <span className="text-muted"> · {o.title}</span>
                   </div>
                   <div className="text-sm whitespace-nowrap">{fmtShortDate(o.fittingDate)} <span className="text-xs text-muted">{relativeDays(o.fittingDate)}</span></div>
@@ -204,7 +205,7 @@ export default async function TodayPage() {
             <ul className="divide-y divide-line/60 text-sm">
               {todayPayments.map((p) => (
                 <li key={p.id} className="py-2 flex justify-between">
-                  <Link href={`/orders/${p.orderId}`} className="link">{p.order.customer.name} · {p.order.title}</Link>
+                  <Link href={`/orders/${p.orderId}`} className="link">{orderWho(p.order)} · {p.order.title}</Link>
                   <span className="tabular-nums">{money(p.amount)}</span>
                 </li>
               ))}

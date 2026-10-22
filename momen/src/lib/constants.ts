@@ -8,6 +8,14 @@ export const ORDER_STATUSES = [
   { value: "CANCELLED", label: "Cancelled" },
 ] as const;
 
+// Who an order is made for. Anything but CUSTOMER is in-house work: it costs money but nobody owes for it.
+export const ORDER_PURPOSES = [
+  { value: "CUSTOMER", label: "A customer" },
+  { value: "MODELLING", label: "Modelling / photoshoot" },
+  { value: "ADVERT", label: "Advert / campaign" },
+  { value: "RTW", label: "Ready-to-wear stock" },
+] as const;
+
 export const OPEN_STATUSES = ["PENDING", "CUTTING", "SEWING", "FITTING", "READY"];
 
 export const ORDER_COST_CATEGORIES = [

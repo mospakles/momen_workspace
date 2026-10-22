@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { OPEN_STATUSES } from "@/lib/constants";
 import { fmtShortDate, money, relativeDays, startOfDay } from "@/lib/format";
-import { deliveryDelta, orderTotals } from "@/lib/orders";
+import { deliveryDelta, orderTotals, orderWho } from "@/lib/orders";
 import { Empty, PageHeader, Pill, StatusBadge } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,7 @@ const FILTERS = [
   { value: "overdue", label: "Overdue" },
   { value: "owing", label: "Owing money" },
   { value: "delivered", label: "Delivered" },
+  { value: "inhouse", label: "In-house (shoots, ads, RTW)" },
   { value: "all", label: "All" },
 ];
 
@@ -25,12 +26,13 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   if (filter === "overdue") Object.assign(where, { status: { in: OPEN_STATUSES }, dueDate: { lt: today } });
   if (filter === "delivered") where.status = "DELIVERED";
   if (filter === "owing") where.status = { not: "CANCELLED" };
+  if (filter === "inhouse") where.purpose = { not: "CUSTOMER" };
   if (q) where.OR = [{ title: { contains: q, mode: "insensitive" } }, { customer: { name: { contains: q, mode: "insensitive" } } }];
 
   let orders = await db.order.findMany({
     where,
     include: { customer: true, payments: true, costs: true },
-    orderBy: filter === "delivered" || filter === "all" ? { orderDate: "desc" } : { dueDate: "asc" },
+    orderBy: filter === "delivered" || filter === "all" || filter === "inhouse" ? { orderDate: "desc" } : { dueDate: "asc" },
   });
   if (filter === "owing") orders = orders.filter((o) => orderTotals(o).balance > 0);
 
@@ -64,7 +66,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           <table className="table">
             <thead>
               <tr>
-                <th>Customer · Outfit</th>
+                <th>For · Outfit</th>
                 <th>Status</th>
                 <th>Due</th>
                 <th className="text-right">Price</th>
@@ -82,7 +84,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 return (
                   <tr key={o.id}>
                     <td>
-                      <Link href={`/orders/${o.id}`} className="link font-medium">{o.customer.name}</Link>
+                      <Link href={`/orders/${o.id}`} className="link font-medium">{orderWho(o)}</Link>
                       <div className="text-muted">{o.title}{o.quantity > 1 ? ` ×${o.quantity}` : ""}</div>
                     </td>
                     <td><StatusBadge status={o.status} /></td>

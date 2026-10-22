@@ -15,10 +15,16 @@ function touch(orderId: number) {
 }
 
 function orderData(fd: FormData) {
+  const purpose = str(fd, "purpose") ?? "CUSTOMER";
+  // A customer order must have a customer; in-house work may name a model / wearer.
+  const customerId = int(fd, "customerId");
+  if (purpose === "CUSTOMER" && !customerId) throw new Error("Pick a customer");
   const status = str(fd, "status") ?? "PENDING";
   let deliveredAt = date(fd, "deliveredAt");
   if (status === "DELIVERED" && !deliveredAt) deliveredAt = new Date();
   return {
+    purpose,
+    customerId,
     title: reqStr(fd, "title"),
     description: str(fd, "description"),
     fabricSource: str(fd, "fabricSource"),
@@ -37,9 +43,7 @@ function orderData(fd: FormData) {
 }
 
 export async function createOrder(fd: FormData) {
-  const customerId = int(fd, "customerId");
-  if (!customerId) throw new Error("Pick a customer");
-  const order = await db.order.create({ data: { ...orderData(fd), customerId } });
+  const order = await db.order.create({ data: orderData(fd) });
 
   // Optional deposit taken when the order was booked.
   const deposit = int(fd, "deposit");
@@ -48,7 +52,7 @@ export async function createOrder(fd: FormData) {
       data: { orderId: order.id, amount: deposit, paidAt: order.orderDate, method: str(fd, "depositMethod"), note: "Deposit" },
     });
   }
-  revalidatePath(`/customers/${customerId}`);
+  if (order.customerId) revalidatePath(`/customers/${order.customerId}`);
   touch(order.id);
   redirect(`/orders/${order.id}`);
 }

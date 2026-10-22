@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { ORDER_COST_CATEGORIES, ORDER_STATUSES, PAYMENT_METHODS, PHOTO_KINDS, labelFor } from "@/lib/constants";
+import { ORDER_COST_CATEGORIES, ORDER_PURPOSES, ORDER_STATUSES, PAYMENT_METHODS, PHOTO_KINDS, labelFor } from "@/lib/constants";
 import { daysUntil, fmtDate, money, relativeDays, toInputDate } from "@/lib/format";
-import { deliveryDelta, orderTotals } from "@/lib/orders";
+import { deliveryDelta, isInHouse, orderTotals } from "@/lib/orders";
 import {
   addCost,
   addPayment,
@@ -48,6 +48,8 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const delta = deliveryDelta(o);
   const today = toInputDate(new Date());
   const isOpen = !["DELIVERED", "CANCELLED"].includes(o.status);
+  const inHouse = isInHouse(o);
+  const rtw = o.purpose === "RTW";
 
   return (
     <div className="space-y-6">
@@ -57,8 +59,9 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         <div>
           <h1 className="h1">{o.title}{o.quantity > 1 ? ` ×${o.quantity}` : ""}</h1>
           <div className="text-sm text-muted mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center">
-            <Link href={`/customers/${o.customerId}`} className="link font-medium">{o.customer.name}</Link>
-            {o.customer.phone && <a href={`tel:${o.customer.phone}`} className="link">{o.customer.phone}</a>}
+            {inHouse && <Pill tone="plum">{labelFor(ORDER_PURPOSES, o.purpose)}</Pill>}
+            {o.customer && <Link href={`/customers/${o.customer.id}`} className="link font-medium">{inHouse ? `Model: ${o.customer.name}` : o.customer.name}</Link>}
+            {o.customer?.phone && !inHouse && <a href={`tel:${o.customer.phone}`} className="link">{o.customer.phone}</a>}
             <StatusBadge status={o.status} />
             <span>Ordered {fmtDate(o.orderDate)}</span>
           </div>
@@ -73,9 +76,13 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <Stat label="Price" value={money(o.price)} />
-        <Stat label="Paid" value={money(t.paid)} />
-        <Stat label="Balance" value={t.balance > 0 ? money(t.balance) : "Fully paid"} tone={t.balance > 0 ? "bad" : "good"} />
+        <Stat label={rtw ? "Expected sales" : "Price"} value={money(o.price)} />
+        <Stat label={rtw ? "Sold so far" : "Paid"} value={money(t.paid)} />
+        {inHouse ? (
+          <Stat label={rtw ? "Still to sell" : "Balance"} value={rtw ? money(Math.max(0, o.price - t.paid)) : "In-house"} hint={rtw ? undefined : "nobody owes for this"} />
+        ) : (
+          <Stat label="Balance" value={t.balance > 0 ? money(t.balance) : "Fully paid"} tone={t.balance > 0 ? "bad" : "good"} />
+        )}
         <Stat label="Costs" value={money(t.cost)} hint="tailor, embroidery, materials…" />
         <Stat label="Profit" value={money(t.profit)} tone={t.profit >= 0 ? "good" : "bad"} hint={o.price ? `${Math.round((t.profit / o.price) * 100)}% margin` : undefined} />
       </div>
@@ -110,7 +117,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             {o.notes && <p className="text-sm whitespace-pre-wrap mt-2"><span className="text-muted">Notes: </span>{o.notes}</p>}
           </Section>
 
-          <Section title="Payments">
+          <Section title={rtw ? "Sales" : "Payments"}>
             {o.payments.length === 0 ? (
               <Empty>No payments yet.</Empty>
             ) : (
@@ -241,9 +248,11 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             </form>
           </Section>
 
-          <Section title="Measurements" actions={<Link href={`/customers/${o.customerId}/measurements/new`} className="link text-xs">+ New</Link>}>
-            {o.measurement ? <MeasurementCard m={o.measurement} compact editHref={`/customers/${o.customerId}/measurements/${o.measurement.id}`} /> : <Empty>No measurements linked. Edit the order to pick one.</Empty>}
-          </Section>
+          {o.customerId && (
+            <Section title="Measurements" actions={<Link href={`/customers/${o.customerId}/measurements/new`} className="link text-xs">+ New</Link>}>
+              {o.measurement ? <MeasurementCard m={o.measurement} compact editHref={`/customers/${o.customerId}/measurements/${o.measurement.id}`} /> : <Empty>No measurements linked. Edit the order to pick one.</Empty>}
+            </Section>
+          )}
 
           <Section title="Tasks">
             <form action={addTask} className="grid grid-cols-[1fr_auto] gap-2 mb-2 no-print">

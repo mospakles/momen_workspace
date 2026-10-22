@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { fmtDate, fmtShortDate, money, normalizePhone, reminderText, toInputDate, whatsappLink } from "@/lib/format";
-import { deliveryDelta, orderTotals } from "@/lib/orders";
+import { deliveryDelta, isInHouse, orderTotals } from "@/lib/orders";
+import { ORDER_PURPOSES, labelFor } from "@/lib/constants";
 import { deleteMeasurement } from "@/actions/customers";
 import { addIssue } from "@/actions/misc";
 import { MeasurementCard } from "@/components/MeasurementCard";
@@ -29,7 +30,8 @@ export default async function CustomerPage({ params, searchParams }: { params: P
     ? (await db.customer.findMany({ where: { id: { not: c.id }, phone: { not: null } } })).filter((d) => normalizePhone(d.phone) === phone)
     : [];
 
-  const active = c.orders.filter((o) => o.status !== "CANCELLED");
+  // Outfits they modelled for the shop are listed but don't count as their spending.
+  const active = c.orders.filter((o) => o.status !== "CANCELLED" && !isInHouse(o));
   const totals = active.map(orderTotals);
   const billed = active.reduce((s, o) => s + o.price, 0);
   const paid = totals.reduce((s, t) => s + t.paid, 0);
@@ -115,7 +117,11 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                   const delta = deliveryDelta(o);
                   return (
                     <tr key={o.id}>
-                      <td><Link href={`/orders/${o.id}`} className="link">{o.title}</Link><div className="text-xs text-muted">{fmtDate(o.orderDate)}</div></td>
+                      <td>
+                        <Link href={`/orders/${o.id}`} className="link">{o.title}</Link>
+                        {isInHouse(o) && <span className="ml-2"><Pill tone="plum">{labelFor(ORDER_PURPOSES, o.purpose)}</Pill></span>}
+                        <div className="text-xs text-muted">{fmtDate(o.orderDate)}</div>
+                      </td>
                       <td><StatusBadge status={o.status} /></td>
                       <td className="whitespace-nowrap">{fmtShortDate(o.dueDate)}</td>
                       <td className="whitespace-nowrap">
@@ -124,7 +130,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                         {delta !== null && delta < 0 && <div><Pill tone="red">{-delta}d late</Pill></div>}
                       </td>
                       <td className="text-right tabular-nums">{money(o.price)}</td>
-                      <td className={`text-right tabular-nums ${t.balance > 0 ? "text-red-700 font-medium" : "text-muted"}`}>{t.balance > 0 ? money(t.balance) : "Paid"}</td>
+                      <td className={`text-right tabular-nums ${t.balance > 0 ? "text-red-700 font-medium" : "text-muted"}`}>{t.balance > 0 ? money(t.balance) : isInHouse(o) ? "—" : "Paid"}</td>
                     </tr>
                   );
                 })}

@@ -42,8 +42,11 @@ model Measurement {
 
 model Order {
   id            Int              @id @default(autoincrement())
-  customerId    Int
-  customer      Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  // Who it's for: CUSTOMER, or in-house work: MODELLING, ADVERT, RTW (ready-to-wear stock).
+  purpose       String           @default("CUSTOMER")
+  // Required for CUSTOMER orders; for in-house work it's the optional model / wearer.
+  customerId    Int?
+  customer      Customer?        @relation(fields: [customerId], references: [id], onDelete: Cascade)
   measurementId Int?
   measurement   Measurement?     @relation(fields: [measurementId], references: [id], onDelete: SetNull)
   title         String // e.g. "Aso-ebi gown", "Corset dress"

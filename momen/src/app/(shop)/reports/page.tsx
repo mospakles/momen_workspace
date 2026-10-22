@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { EXPENSE_CATEGORIES, ORDER_COST_CATEGORIES, labelFor } from "@/lib/constants";
+import { EXPENSE_CATEGORIES, ORDER_COST_CATEGORIES, ORDER_PURPOSES, labelFor } from "@/lib/constants";
 import { currentMonth, fmtShortDate, money, monthLabel, shiftMonth } from "@/lib/format";
-import { deliveryDelta, orderTotals } from "@/lib/orders";
+import { deliveryDelta, orderTotals, orderWho } from "@/lib/orders";
 import { monthSummary } from "@/lib/reports";
 import { MonthPicker } from "@/components/MonthPicker";
 import { PrintButton } from "@/components/PrintButton";
@@ -59,6 +59,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
           <Row label="Cost of making outfits" value={-s.directCosts} bold />
           {s.costsByCategory.map(([k, v]) => <Row key={k} label={labelFor(ORDER_COST_CATEGORIES, k)} value={-v} indent />)}
+          {s.inHouseByPurpose.length > 0 && (
+            <div className="mt-2 rounded-lg bg-cream px-3 py-1">
+              <div className="label mt-1 mb-0">Of which in-house work</div>
+              {s.inHouseByPurpose.map(([k, v]) => <Row key={k} label={labelFor(ORDER_PURPOSES, k)} value={-v} indent />)}
+            </div>
+          )}
 
           <Row label="Gross profit" value={s.grossProfit} bold tone />
 
@@ -94,7 +100,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                     <tbody>
                       {deliveredStats.map(({ o, t, d }) => (
                         <tr key={o.id}>
-                          <td><Link href={`/orders/${o.id}`} className="link">{o.customer.name}</Link><div className="text-xs text-muted">{o.title}</div></td>
+                          <td><Link href={`/orders/${o.id}`} className="link">{orderWho(o)}</Link><div className="text-xs text-muted">{o.title}</div></td>
                           <td className="whitespace-nowrap">
                             {fmtShortDate(o.deliveredAt)}
                             {d !== null && d !== 0 && <div className={`text-xs ${d > 0 ? "text-emerald-700" : "text-red-700"}`}>{d > 0 ? `${d}d early` : `${-d}d late`}</div>}
@@ -131,7 +137,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <ul className="divide-y divide-line/60 text-sm">
                 {debtors.slice(0, 15).map(({ o, t }) => (
                   <li key={o.id} className="py-1.5 flex justify-between gap-2">
-                    <Link href={`/orders/${o.id}`} className="link">{o.customer.name} <span className="text-muted">· {o.title}</span></Link>
+                    <Link href={`/orders/${o.id}`} className="link">{orderWho(o)} <span className="text-muted">· {o.title}</span></Link>
                     <span className="tabular-nums text-red-700">{money(t.balance)}</span>
                   </li>
                 ))}

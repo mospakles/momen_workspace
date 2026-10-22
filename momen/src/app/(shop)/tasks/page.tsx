@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { orderWho } from "@/lib/orders";
 import { OPEN_STATUSES } from "@/lib/constants";
 import { addDays, startOfDay, toInputDate } from "@/lib/format";
 import { addTask } from "@/actions/misc";
@@ -29,7 +30,7 @@ export default async function TasksPage() {
           <input name="dueDate" type="date" className="input" defaultValue={toInputDate(today)} />
           <select name="orderId" className="input" defaultValue="">
             <option value="">Not linked to an order</option>
-            {orders.map((o) => <option key={o.id} value={o.id}>{o.customer.name} · {o.title}</option>)}
+            {orders.map((o) => <option key={o.id} value={o.id}>{orderWho(o)} · {o.title}</option>)}
           </select>
           <button className="btn-primary">Add</button>
         </form>

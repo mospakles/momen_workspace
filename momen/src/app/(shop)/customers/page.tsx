@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { fmtDate, money, normalizePhone } from "@/lib/format";
-import { orderTotals } from "@/lib/orders";
+import { isInHouse, orderTotals } from "@/lib/orders";
 import { Empty, PageHeader, Pill } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +44,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
             </thead>
             <tbody>
               {customers.map((c) => {
-                const active = c.orders.filter((o) => o.status !== "CANCELLED");
+                const active = c.orders.filter((o) => o.status !== "CANCELLED" && !isInHouse(o));
                 const spent = active.reduce((s, o) => s + orderTotals(o).paid, 0);
                 const owes = active.reduce((s, o) => s + Math.max(0, orderTotals(o).balance), 0);
                 const last = c.orders.reduce<Date | null>((d, o) => (!d || o.orderDate > d ? o.orderDate : d), null);

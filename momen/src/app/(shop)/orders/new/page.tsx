@@ -14,7 +14,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
   return (
     <div>
       <BackLink href={cid ? `/customers/${cid}` : "/orders"}>Back</BackLink>
-      <PageHeader title="New order" subtitle={<>New customer? <Link href="/customers/new" className="link">Add them first</Link>.</>} />
+      <PageHeader title="New order" subtitle={<>For a customer, a photoshoot, an advert or ready-to-wear stock. New customer? <Link href="/customers/new" className="link">Add them first</Link>.</>} />
       <OrderForm action={createOrder} customers={customers} customerId={cid} measurements={measurements} submitLabel="Create order" />
     </div>
   );
