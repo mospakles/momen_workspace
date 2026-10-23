@@ -60,32 +60,45 @@ export const PHOTO_KINDS = [
 
 export const PAYMENT_METHODS = ["Transfer", "Cash", "POS"] as const;
 
-// Standard measurement fields. Anything else can be added as a custom field on the form.
-export const MEASUREMENT_FIELDS = [
-  "Bust",
-  "Under bust",
-  "Waist",
-  "Hips",
-  "Shoulder",
-  "Neck",
-  "Bust point",
-  "Nipple to nipple",
-  "Shoulder to under bust",
-  "Shoulder to waist",
-  "Half length",
-  "Blouse length",
-  "Sleeve length",
-  "Round sleeve (arm)",
-  "Elbow",
-  "Wrist",
-  "Skirt length",
-  "Gown length",
-  "Trouser length",
-  "Thigh",
-  "Knee",
-  "Ankle / bottom",
-  "Crotch",
-] as const;
+export type MeasurementSet = "FEMALE" | "MALE";
+
+// Standard tailoring measurements, grouped as they're taken. Names shared by both sets
+// (Shoulder, Neck, Waist, Hips, sleeves, trousers) are spelled the same so values carry over.
+export const MEASUREMENT_SETS: Record<MeasurementSet, { label: string; groups: { title: string; fields: string[] }[] }> = {
+  MALE: {
+    label: "Male",
+    groups: [
+      { title: "Top", fields: ["Neck", "Chest", "Stomach", "Shoulder", "Across back", "Armhole"] },
+      { title: "Sleeves", fields: ["Sleeve length", "Short sleeve length", "Round sleeve (arm)", "Wrist"] },
+      { title: "Lengths", fields: ["Shirt / top length", "Kaftan / senator length", "Jacket length", "Agbada length", "Agbada width", "Cap (head)"] },
+      { title: "Trousers", fields: ["Waist", "Hips", "Trouser length", "Thigh", "Knee", "Ankle / bottom", "Crotch"] },
+    ],
+  },
+  FEMALE: {
+    label: "Female",
+    groups: [
+      { title: "Top", fields: ["Bust", "Under bust", "Waist", "Hips", "Shoulder", "Neck", "Bust point", "Nipple to nipple", "Shoulder to under bust", "Shoulder to waist", "Half length", "Armhole"] },
+      { title: "Sleeves", fields: ["Sleeve length", "Round sleeve (arm)", "Elbow", "Wrist"] },
+      { title: "Lengths", fields: ["Blouse length", "Waist to knee", "Skirt length", "Gown length"] },
+      { title: "Trousers", fields: ["Trouser length", "Thigh", "Knee", "Ankle / bottom", "Crotch"] },
+    ],
+  },
+};
+
+export const setFields = (set: MeasurementSet) => MEASUREMENT_SETS[set].groups.flatMap((g) => g.fields);
+
+/** Every standard measurement name across both sets. */
+export const MEASUREMENT_FIELDS = [...new Set([...setFields("FEMALE"), ...setFields("MALE")])];
+
+/** Which set a saved measurement belongs to, from the names it uses. */
+export function guessMeasurementSet(values: Record<string, string>): MeasurementSet | null {
+  const keys = Object.keys(values);
+  const only = (a: MeasurementSet, b: MeasurementSet) => keys.filter((k) => setFields(a).includes(k) && !setFields(b).includes(k)).length;
+  const male = only("MALE", "FEMALE");
+  const female = only("FEMALE", "MALE");
+  if (male === female) return null;
+  return male > female ? "MALE" : "FEMALE";
+}
 
 export function labelFor(list: readonly { value: string; label: string }[], value: string) {
   return list.find((x) => x.value === value)?.label ?? value;

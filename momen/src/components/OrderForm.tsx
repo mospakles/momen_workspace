@@ -21,7 +21,7 @@ export function OrderForm({ action, order, customers, customerId, measurements, 
       <div className="grid sm:grid-cols-2 gap-4">
         {customers && <OrderPurposeFields customers={customers} purpose={order?.purpose} customerId={order ? order.customerId : customerId} />}
         <Field label="Outfit / style *" className="sm:col-span-2">
-          <input name="title" className="input" required placeholder="e.g. Corset gown, Agbada, Aso-ebi blouse & wrapper" defaultValue={order?.title} />
+          <input name="title" className="input" required placeholder="e.g. Agbada, Kaftan, Senator, 2-piece suit" defaultValue={order?.title} />
         </Field>
         <Field label="Description / style details" className="sm:col-span-2">
           <textarea name="description" rows={3} className="input" defaultValue={order?.description ?? ""} />

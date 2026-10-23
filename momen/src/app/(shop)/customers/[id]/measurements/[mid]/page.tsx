@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { guessMeasurementSet } from "@/lib/constants";
 import { saveMeasurement } from "@/actions/customers";
 import { MeasurementForm } from "@/components/MeasurementForm";
 import { BackLink, PageHeader } from "@/components/ui";
@@ -13,7 +14,7 @@ export default async function EditMeasurementPage({ params }: { params: Promise<
     <div>
       <BackLink href={`/customers/${id}`}>{m.customer.name}</BackLink>
       <PageHeader title="Edit measurements" />
-      <MeasurementForm action={saveMeasurement.bind(null, id, m.id)} measurement={m} />
+      <MeasurementForm action={saveMeasurement.bind(null, id, m.id)} measurement={m} defaultSet={guessMeasurementSet(JSON.parse(m.values)) ?? "MALE"} />
     </div>
   );
 }
