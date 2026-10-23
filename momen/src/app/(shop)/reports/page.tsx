@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { EXPENSE_CATEGORIES, ORDER_COST_CATEGORIES, ORDER_PURPOSES, labelFor } from "@/lib/constants";
-import { currentMonth, fmtShortDate, money, monthLabel, shiftMonth } from "@/lib/format";
+import { currentMonth, fmtDate, fmtShortDate, money, monthLabel, shiftMonth } from "@/lib/format";
 import { deliveryDelta, orderTotals, orderWho } from "@/lib/orders";
-import { monthSummary } from "@/lib/reports";
+import { bigBuysPayback, monthSummary, outfitTypes } from "@/lib/reports";
+import { applyRecurring } from "@/lib/recurring";
+import { blobBackupsEnabled, listBackups } from "@/lib/backup";
 import { MonthPicker } from "@/components/MonthPicker";
 import { PrintButton } from "@/components/PrintButton";
 import { Empty, PageHeader, Pill, Section, Stat } from "@/components/ui";
@@ -22,6 +24,8 @@ function Row({ label, value, bold, indent, tone }: { label: string; value: numbe
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const month = (await searchParams).month || currentMonth();
+  await applyRecurring();
+  const [types, payback] = await Promise.all([outfitTypes(), bigBuysPayback()]);
   const s = await monthSummary(month);
 
   // Last 12 months trend
@@ -33,6 +37,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const open = await db.order.findMany({ where: { status: { not: "CANCELLED" } }, include: { payments: true, costs: true, customer: true } });
   const debtors = open.map((o) => ({ o, t: orderTotals(o) })).filter((x) => x.t.balance > 0).sort((a, b) => b.t.balance - a.t.balance);
   const owed = debtors.reduce((sum, x) => sum + x.t.balance, 0);
+
+  // Saved daily by the cron; a failure to list them shouldn't break the report.
+  const backups = blobBackupsEnabled() ? (await listBackups().catch(() => [])).slice(0, 7) : [];
 
   const deliveredStats = s.delivered.map((o) => ({ o, t: orderTotals(o), d: deliveryDelta(o) }));
   const early = deliveredStats.filter((x) => x.d !== null && x.d > 0).length;
@@ -52,7 +59,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <Stat label="New orders" value={s.bookedCount} hint={`worth ${money(s.bookedValue)}`} />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Section title="Profit & loss">
           <Row label="Income (payments received)" value={s.income} bold />
           {s.paymentsByMethod.map(([k, v]) => <Row key={k} label={k} value={v} indent />)}
@@ -147,6 +154,51 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </div>
       </div>
 
+      {payback && (
+        <Section title="Big buys paid back">
+          <div className="flex justify-between text-sm mb-1">
+            <span>Profit since {fmtDate(payback.since)}: <span className="font-medium tabular-nums">{money(payback.profit)}</span></span>
+            <span>Spent on machines & equipment: <span className="font-medium tabular-nums">{money(payback.spent)}</span></span>
+          </div>
+          <div className="h-3 bg-cream rounded-full overflow-hidden border border-line">
+            <div className="h-full bg-emerald-600" style={{ width: `${payback.share * 100}%` }} />
+          </div>
+          <p className="text-sm mt-2">
+            <span className="font-semibold">{Math.round(payback.share * 100)}% paid back.</span>{" "}
+            <span className="text-muted">
+              {payback.share >= 1 ? "Your equipment has fully paid for itself." : `${money(payback.spent - Math.max(0, payback.profit))} of profit still to go.`}
+            </span>
+          </p>
+        </Section>
+      )}
+
+      <Section title="Profit by outfit type">
+        <p className="text-sm text-muted mb-2">Delivered customer orders from the last 12 months. Use it as a pricing guide: low-margin styles may be underpriced.</p>
+        {types.length === 0 ? (
+          <Empty>No delivered orders yet.</Empty>
+        ) : (
+          <div className="overflow-x-auto -mx-4">
+            <table className="table">
+              <thead><tr><th>Outfit</th><th className="text-right">Made</th><th className="text-right">Avg price</th><th className="text-right">Avg cost</th><th className="text-right">Avg profit</th><th className="text-right">Margin</th></tr></thead>
+              <tbody>
+                {types.slice(0, 20).map((g) => (
+                  <tr key={g.name}>
+                    <td className="font-medium">{g.name}</td>
+                    <td className="text-right tabular-nums">{g.count}</td>
+                    <td className="text-right tabular-nums">{money(g.avgPrice)}</td>
+                    <td className="text-right tabular-nums text-muted">{money(g.avgCost)}</td>
+                    <td className={`text-right tabular-nums ${g.avgProfit >= 0 ? "text-emerald-700" : "text-red-700"}`}>{money(g.avgProfit)}</td>
+                    <td className="text-right tabular-nums">
+                      {Math.round(g.margin * 100)}%{g.margin < 0.3 && <span className="ml-1"><Pill tone="amber">low</Pill></span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+
       <Section title="Last 12 months">
         <div className="overflow-x-auto -mx-4">
           <table className="table">
@@ -182,6 +234,25 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             </tfoot>
           </table>
         </div>
+      </Section>
+
+      <Section title="Backups" className="no-print" actions={<a href="/api/backup" className="btn btn-sm">Download backup now</a>}>
+        <p className="text-sm text-muted mb-2">
+          A copy of everything (customers, orders, payments, expenses…) is saved automatically every night and kept for 30 days.
+          Download one now and then and keep it somewhere safe, like Google Drive.
+        </p>
+        {backups.length === 0 ? (
+          <Empty>No automatic backups yet. The first one runs tonight.</Empty>
+        ) : (
+          <ul className="text-sm divide-y divide-line/60">
+            {backups.map((b) => (
+              <li key={b.pathname} className="py-1.5 flex justify-between">
+                <span>{fmtDate(b.uploadedAt)} · {b.uploadedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
+                <a href={`/api/backup?file=${encodeURIComponent(b.pathname)}`} className="link">Download</a>
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
     </div>
   );

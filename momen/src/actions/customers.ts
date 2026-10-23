@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { date, reqStr, str } from "@/lib/form";
 import { MEASUREMENT_FIELDS } from "@/lib/constants";
 import { normalizePhone } from "@/lib/format";
-import { removePhoto } from "@/lib/uploads";
+import { binCustomer } from "@/lib/trash";
 
 function customerData(fd: FormData) {
   return {
@@ -49,10 +49,9 @@ export async function updateCustomer(id: number, fd: FormData) {
 }
 
 export async function deleteCustomer(id: number) {
-  const photos = await db.photo.findMany({ where: { order: { customerId: id } } });
-  await db.customer.delete({ where: { id } });
-  await Promise.all(photos.map(removePhoto));
+  await binCustomer(id);
   revalidatePath("/customers");
+  revalidatePath("/bin");
   redirect("/customers");
 }
 

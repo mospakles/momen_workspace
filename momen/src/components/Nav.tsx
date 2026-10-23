@@ -8,6 +8,8 @@ const LINKS = [
   { href: "/orders", label: "Orders", icon: "✂︎" },
   { href: "/customers", label: "Customers", icon: "☺︎" },
   { href: "/expenses", label: "Expenses", icon: "₦" },
+  { href: "/workers", label: "Workers", icon: "⚒︎" },
+  { href: "/stock", label: "Stock", icon: "▦" },
   { href: "/tasks", label: "To-do", icon: "✓" },
   { href: "/issues", label: "Issues", icon: "!" },
   { href: "/reports", label: "Reports", icon: "▤" },
@@ -40,6 +42,12 @@ export function Nav() {
             </Link>
           ))}
         </nav>
+        <Link href="/portfolio" target="_blank" className="text-xs px-3 mb-1 text-muted hover:text-ink">
+          Public portfolio ↗
+        </Link>
+        <Link href="/bin" className={`text-xs px-3 mb-2 ${active("/bin") ? "text-plum font-medium" : "text-muted hover:text-ink"}`}>
+          Bin (deleted items)
+        </Link>
         <form action="/logout" method="post">
           <button className="text-xs text-muted hover:text-ink px-3">Log out</button>
         </form>
@@ -50,6 +58,9 @@ export function Nav() {
           Momen
         </Link>
         <div className="flex gap-3 text-sm">
+          <Link href="/workers" className={active("/workers") ? "text-plum font-medium" : "text-muted"}>
+            Workers
+          </Link>
           <Link href="/tasks" className={active("/tasks") ? "text-plum font-medium" : "text-muted"}>
             To-do
           </Link>

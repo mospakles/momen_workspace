@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { OPEN_STATUSES } from "@/lib/constants";
-import { addDays, currentMonth, daysUntil, fmtShortDate, money, monthRange, relativeDays, reminderText, startOfDay, toInputDate, whatsappLink } from "@/lib/format";
-import { orderTotals, orderWho } from "@/lib/orders";
+import { addDays, birthdayText, currentMonth, daysUntil, fmtShortDate, money, monthRange, readyText, relativeDays, reminderText, startOfDay, toInputDate, whatsappLink } from "@/lib/format";
+import { needsDeposit, orderTotals, orderWho } from "@/lib/orders";
+import { applyRecurring } from "@/lib/recurring";
 import { Empty, Pill, Section, Stat, StatusBadge } from "@/components/ui";
 import { TaskList } from "@/components/TaskList";
 import { addTask } from "@/actions/misc";
+import { markCustomerPaid } from "@/actions/orders";
+import { MarkPaidButton } from "@/components/MarkPaidButton";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +17,7 @@ export default async function TodayPage() {
   const tomorrow = addDays(today, 1);
   const weekAhead = addDays(today, 8);
   const { start: monthStart, end: monthEnd } = monthRange(currentMonth());
+  await applyRecurring();
 
   const [openOrders, promises, tasks, todayPayments, todayExpenses, monthPayments, unresolvedIssues] = await Promise.all([
     db.order.findMany({
@@ -36,6 +40,9 @@ export default async function TodayPage() {
     db.payment.aggregate({ _sum: { amount: true }, where: { paidAt: { gte: monthStart, lt: monthEnd } } }),
     db.issue.count({ where: { resolved: false } }),
   ]);
+  const birthdays = (await db.customer.findMany({ where: { birthday: { not: null } } }))
+    .filter((c) => c.birthday!.getMonth() === today.getMonth())
+    .sort((a, b) => a.birthday!.getDate() - b.birthday!.getDate());
 
   // Balances owed across all non-cancelled orders, including delivered ones.
   const owing = await db.order.findMany({
@@ -63,6 +70,12 @@ export default async function TodayPage() {
   const overdue = openOrders.filter((o) => o.dueDate && o.dueDate < today);
   const dueSoon = openOrders.filter((o) => o.dueDate && o.dueDate >= today && o.dueDate < weekAhead);
   const fittings = openOrders.filter((o) => o.fittingDate && o.fittingDate >= today && o.fittingDate < weekAhead);
+  // Waiting for pickup, longest first; 7+ days is flagged.
+  const ready = openOrders
+    .filter((o) => o.status === "READY" && o.customer && o.purpose === "CUSTOMER")
+    .map((o) => ({ o, days: o.readyAt ? -daysUntil(o.readyAt) : 0 }))
+    .sort((a, b) => b.days - a.days);
+  const noDeposit = openOrders.filter(needsDeposit);
   const todayIn = todayPayments.reduce((s, p) => s + p.amount, 0);
   const todayOut = todayExpenses.reduce((s, e) => s + e.amount, 0);
 
@@ -89,7 +102,7 @@ export default async function TodayPage() {
         <Stat label="Today" value={<span className="text-base">In {money(todayIn)} · Out {money(todayOut)}</span>} hint={unresolvedIssues ? <Link href="/issues" className="link">{unresolvedIssues} unresolved issue(s)</Link> : "No open issues"} />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Section title="Overdue & due this week" actions={<Link href="/orders" className="link text-sm">All orders</Link>}>
           {overdue.length + dueSoon.length === 0 ? (
             <Empty>Nothing due in the next 7 days.</Empty>
@@ -106,6 +119,7 @@ export default async function TodayPage() {
                       <div className="text-xs mt-0.5 flex flex-wrap gap-1.5 items-center">
                         <StatusBadge status={o.status} />
                         {t.balance > 0 && <Pill tone="amber">owes {money(t.balance)}</Pill>}
+                        {needsDeposit(o) && <Pill tone="red">no deposit</Pill>}
                       </div>
                     </div>
                     <div className={`text-sm text-right whitespace-nowrap ${late ? "text-red-700 font-medium" : ""}`}>
@@ -127,6 +141,56 @@ export default async function TodayPage() {
           </form>
           <TaskList tasks={tasks} />
         </Section>
+
+        <Section title="Ready for pickup">
+          {ready.length === 0 ? (
+            <Empty>Nothing waiting for pickup.</Empty>
+          ) : (
+            <ul className="divide-y divide-line/60">
+              {ready.map(({ o, days }) => {
+                const t = orderTotals(o);
+                return (
+                  <li key={o.id} className="py-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link href={`/orders/${o.id}`} className="font-medium link">{orderWho(o)}</Link>
+                      <span className="text-muted"> · {o.title}</span>
+                      <div className="text-xs mt-0.5 flex flex-wrap gap-1.5">
+                        {days >= 7 ? <Pill tone="red">waiting {days} days</Pill> : <span className="text-muted">ready {days === 0 ? "today" : `${days}d ago`}</span>}
+                        {t.balance > 0 && <Pill tone="amber">owes {money(t.balance)}</Pill>}
+                      </div>
+                    </div>
+                    {o.customer?.phone && (
+                      <a href={whatsappLink(o.customer.phone, readyText(o.customer.name, o.title, t.balance))} target="_blank" className="btn btn-sm shrink-0">Tell them</a>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Section>
+
+        {noDeposit.length > 0 && (
+          <Section title="Started without a deposit">
+            <p className="text-xs text-muted mb-2">Work has begun but nothing has been paid. Ask for a deposit before going further.</p>
+            <ul className="divide-y divide-line/60">
+              {noDeposit.map((o) => (
+                <li key={o.id} className="py-2 flex justify-between gap-3">
+                  <div>
+                    <Link href={`/orders/${o.id}`} className="font-medium link">{orderWho(o)}</Link>
+                    <span className="text-muted"> · {o.title}</span>
+                    <div className="mt-0.5"><StatusBadge status={o.status} /></div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm tabular-nums">{money(o.price)}</span>
+                    {o.customer?.phone && (
+                      <a href={whatsappLink(o.customer.phone, reminderText(o.customer.name, o.price, [o.title]))} target="_blank" className="btn btn-sm">Remind</a>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
 
         <Section title="Who owes you" actions={<Link href="/orders?filter=owing" className="link text-sm">By order</Link>}>
           <div id="owing" className="scroll-mt-4" />
@@ -150,6 +214,7 @@ export default async function TodayPage() {
                     ) : (
                       <span className="text-xs text-muted">no phone</span>
                     )}
+                    <MarkPaidButton action={markCustomerPaid.bind(null, d.customer.id)} owed={d.balance} who={d.customer.name} />
                   </div>
                 </li>
               ))}
@@ -199,6 +264,26 @@ export default async function TodayPage() {
             </ul>
           )}
         </Section>
+
+        {birthdays.length > 0 && (
+          <Section title="Birthdays this month">
+            <ul className="divide-y divide-line/60">
+              {birthdays.map((c) => {
+                const isToday = c.birthday!.getDate() === today.getDate();
+                return (
+                  <li key={c.id} className="py-2 flex justify-between items-center gap-3">
+                    <div>
+                      <Link href={`/customers/${c.id}`} className="font-medium link">{c.name}</Link>
+                      <span className="text-muted"> · {c.birthday!.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}</span>
+                      {isToday && <span className="ml-2"><Pill tone="plum">today 🎂</Pill></span>}
+                    </div>
+                    {c.phone && <a href={whatsappLink(c.phone, birthdayText(c.name))} target="_blank" className="btn btn-sm">Send wishes</a>}
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+        )}
 
         {todayPayments.length > 0 && (
           <Section title="Money in today">

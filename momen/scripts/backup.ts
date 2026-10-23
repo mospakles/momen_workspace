@@ -4,26 +4,15 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
+import { backupName, exportAll } from "../src/lib/backup";
 
 const db = new PrismaClient();
 
 async function main() {
-  const data = {
-    exportedAt: new Date().toISOString(),
-    customers: await db.customer.findMany(),
-    measurements: await db.measurement.findMany(),
-    orders: await db.order.findMany(),
-    payments: await db.payment.findMany(),
-    promises: await db.paymentPromise.findMany(),
-    orderCosts: await db.orderCost.findMany(),
-    expenses: await db.expense.findMany(),
-    photos: await db.photo.findMany(),
-    tasks: await db.task.findMany(),
-    issues: await db.issue.findMany(),
-  };
+  const data = await exportAll(db);
   const dir = path.join(process.cwd(), "backups");
   mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, `momen-${data.exportedAt.slice(0, 19).replace(/[:T]/g, "-")}.json`);
+  const file = path.join(dir, backupName(data.exportedAt));
   writeFileSync(file, JSON.stringify(data, null, 2));
   console.log(`Saved ${path.relative(process.cwd(), file)} (${data.customers.length} customers, ${data.orders.length} orders)`);
 }

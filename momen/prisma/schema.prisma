@@ -59,6 +59,7 @@ model Order {
   fittingDate   DateTime?
   dueDate       DateTime?
   deliveredAt   DateTime?
+  readyAt       DateTime? // when it last became READY, to spot outfits waiting too long for pickup
   fitNotes      String? // comments about the fit
   problems      String? // anything that went wrong on this order
   notes         String?
@@ -70,6 +71,19 @@ model Order {
   photos        Photo[]
   tasks         Task[]
   issues        Issue[]
+  sizes         RtwSize[]
+}
+
+// Ready-to-wear stock: how many pieces of each size were made and sold.
+model RtwSize {
+  id      Int    @id @default(autoincrement())
+  orderId Int
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  size    String // S, M, L, 12, 14…
+  made    Int    @default(0)
+  sold    Int    @default(0)
+
+  @@unique([orderId, size])
 }
 
 model Payment {
@@ -96,13 +110,15 @@ model PaymentPromise {
 
 // Direct costs of making a specific outfit: tailor pay, embroidery, buttonholes, fabric, lining...
 model OrderCost {
-  id       Int      @id @default(autoincrement())
+  id       Int       @id @default(autoincrement())
   orderId  Int
-  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   category String // TAILOR, EMBROIDERY, BUTTONHOLE, FABRIC, LINING, ACCESSORIES, BEADING, TRANSPORT, OTHER
   amount   Int
-  date     DateTime @default(now())
+  date     DateTime  @default(now())
   paidTo   String?
+  // When the worker was actually paid; null = still owed to them.
+  paidAt   DateTime?
   note     String?
 }
 
@@ -127,6 +143,7 @@ model Photo {
   url       String? // Vercel Blob URL; null when stored on local disk
   kind      String   @default("FIT") // STYLE, FABRIC, FITTING, FINISHED
   caption   String?
+  portfolio Boolean  @default(false) // shown on the public /portfolio page
   createdAt DateTime @default(now())
 }
 
@@ -154,4 +171,38 @@ model Issue {
   orderId    Int?
   order      Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
   createdAt  DateTime  @default(now())
+}
+
+// Costs that repeat every month (rent, data…). Added to Expenses automatically on dayOfMonth.
+model RecurringExpense {
+  id          Int      @id @default(autoincrement())
+  description String
+  kind        String   @default("OPERATING")
+  category    String
+  amount      Int
+  vendor      String?
+  dayOfMonth  Int      @default(1)
+  active      Boolean  @default(true)
+  lastMonth   String? // yyyy-mm it was last added for
+  createdAt   DateTime @default(now())
+}
+
+// Fabric, lining, zips, thread… on hand.
+model Material {
+  id        Int      @id @default(autoincrement())
+  name      String
+  unit      String   @default("yards") // yards, pieces, rolls, packs…
+  quantity  Float    @default(0)
+  lowAt     Float? // warn when quantity falls to this
+  note      String?
+  updatedAt DateTime @updatedAt
+}
+
+// Deleted records kept for 30 days so they can be restored.
+model Trash {
+  id        Int      @id @default(autoincrement())
+  kind      String // CUSTOMER, ORDER, PAYMENT, COST, EXPENSE
+  label     String // what it was, for the bin list
+  data      Json // the record and everything that was deleted with it
+  deletedAt DateTime @default(now())
 }

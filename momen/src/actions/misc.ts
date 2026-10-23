@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { bool, date, int, reqStr, str } from "@/lib/form";
 import { toMonth } from "@/lib/format";
+import { binExpense, deleteFromBin, restoreFromBin } from "@/lib/trash";
 
 // ---- Expenses ----
 
@@ -36,15 +37,75 @@ export async function updateExpense(id: number, fd: FormData) {
 }
 
 export async function deleteExpense(id: number) {
-  await db.expense.delete({ where: { id } });
+  await binExpense(id);
   revalidatePath("/expenses");
+  revalidatePath("/bin");
 }
 
 export async function deleteExpenseAndReturn(id: number) {
-  const e = await db.expense.delete({ where: { id } });
+  const e = await binExpense(id);
+  revalidatePath("/bin");
   revalidatePath("/expenses");
   revalidatePath("/");
   redirect(`/expenses?month=${toMonth(e.date)}`);
+}
+
+// ---- Repeating monthly costs ----
+
+export async function addRecurring(fd: FormData) {
+  const amount = int(fd, "amount");
+  if (!amount) throw new Error("Amount is required");
+  const day = Math.min(28, Math.max(1, int(fd, "dayOfMonth") ?? 1));
+  await db.recurringExpense.create({
+    data: {
+      description: reqStr(fd, "description"),
+      category: str(fd, "category") ?? "OTHER",
+      kind: str(fd, "kind") ?? "OPERATING",
+      vendor: str(fd, "vendor"),
+      amount,
+      dayOfMonth: day,
+    },
+  });
+  revalidatePath("/expenses");
+}
+
+export async function toggleRecurring(id: number, active: boolean) {
+  await db.recurringExpense.update({ where: { id }, data: { active } });
+  revalidatePath("/expenses");
+}
+
+export async function deleteRecurring(id: number) {
+  await db.recurringExpense.delete({ where: { id } });
+  revalidatePath("/expenses");
+}
+
+// ---- Materials stock ----
+
+function num(fd: FormData, key: string) {
+  const v = str(fd, key);
+  const n = v === null ? NaN : Number(v.replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+export async function addMaterial(fd: FormData) {
+  await db.material.create({
+    data: { name: reqStr(fd, "name"), unit: str(fd, "unit") ?? "yards", quantity: num(fd, "quantity") ?? 0, lowAt: num(fd, "lowAt"), note: str(fd, "note") },
+  });
+  revalidatePath("/stock");
+}
+
+/** Bought more (+) or used some (−). Never goes below zero. */
+export async function adjustMaterial(id: number, direction: 1 | -1, fd: FormData) {
+  const by = num(fd, "by");
+  if (!by) return;
+  const m = await db.material.findUniqueOrThrow({ where: { id } });
+  await db.material.update({ where: { id }, data: { quantity: Math.max(0, m.quantity + direction * Math.abs(by)) } });
+  revalidatePath("/stock");
+}
+
+export async function deleteMaterial(id: number) {
+  await db.material.delete({ where: { id } });
+  revalidatePath("/stock");
 }
 
 // ---- Tasks ----
@@ -100,4 +161,23 @@ export async function resolveIssue(id: number, fd: FormData) {
 export async function deleteIssue(id: number) {
   await db.issue.delete({ where: { id } });
   revalidatePath("/issues");
+}
+
+// ---- Bin ----
+
+export async function restoreItem(id: number) {
+  let href: string;
+  try {
+    href = await restoreFromBin(id);
+  } catch (e) {
+    // Production hides thrown messages, so carry the reason back to the page.
+    redirect(`/bin?error=${encodeURIComponent(e instanceof Error ? e.message : "Could not restore it")}`);
+  }
+  for (const p of ["/bin", "/", "/orders", "/customers", "/expenses", "/workers"]) revalidatePath(p);
+  redirect(href);
+}
+
+export async function deleteForever(id: number) {
+  await deleteFromBin(id);
+  revalidatePath("/bin");
 }

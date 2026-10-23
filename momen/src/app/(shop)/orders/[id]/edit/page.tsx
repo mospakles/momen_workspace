@@ -20,7 +20,7 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
       <PageHeader title={`Edit order · ${orderWho(order)}`} />
       <OrderForm action={updateOrder.bind(null, id)} order={order} customers={customers} measurements={measurements} submitLabel="Save changes" />
       <form action={deleteOrder.bind(null, id)} className="mt-6">
-        <ConfirmButton message="Delete this order with all its payments, costs and photos? This cannot be undone.">Delete order</ConfirmButton>
+        <ConfirmButton message="Delete this order with all its payments, costs and photos? You can restore it from the Bin for 30 days.">Delete order</ConfirmButton>
       </form>
     </div>
   );

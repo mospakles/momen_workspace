@@ -55,7 +55,7 @@ export default async function EditCustomerPage({ params, searchParams }: { param
       )}
 
       <form action={deleteCustomer.bind(null, id)}>
-        <ConfirmButton message={`Delete ${customer.name} and ALL their orders, payments and measurements? This cannot be undone.`}>
+        <ConfirmButton message={`Delete ${customer.name} and all their orders, payments and measurements? You can restore them from the Bin for 30 days.`}>
           Delete customer
         </ConfirmButton>
       </form>

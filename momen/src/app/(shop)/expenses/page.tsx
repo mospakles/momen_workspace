@@ -3,20 +3,24 @@ import { db } from "@/lib/db";
 import { EXPENSE_CATEGORIES, EXPENSE_KINDS, labelFor } from "@/lib/constants";
 import { usedExpenseChoices } from "@/lib/reports";
 import { currentMonth, fmtDate, money, monthLabel, monthRange } from "@/lib/format";
-import { addExpense, deleteExpense } from "@/actions/misc";
+import { addExpense, addRecurring, deleteExpense, deleteRecurring, toggleRecurring } from "@/actions/misc";
+import { applyRecurring } from "@/lib/recurring";
+import { SelectOrOther } from "@/components/SelectOrOther";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { ExpenseForm } from "@/components/ExpenseForm";
 import { MonthPicker } from "@/components/MonthPicker";
-import { Empty, PageHeader, Pill, Section, Stat } from "@/components/ui";
+import { Empty, Field, PageHeader, Pill, Section, Stat } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function ExpensesPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const month = (await searchParams).month || currentMonth();
   const { start, end } = monthRange(month);
-  const [expenses, used] = await Promise.all([
+  await applyRecurring();
+  const [expenses, used, recurring] = await Promise.all([
     db.expense.findMany({ where: { date: { gte: start, lt: end } }, orderBy: { date: "desc" } }),
     usedExpenseChoices(),
+    db.recurringExpense.findMany({ orderBy: [{ active: "desc" }, { dayOfMonth: "asc" }] }),
   ]);
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
@@ -42,7 +46,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
         <Stat label="Total" value={money(total)} />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Section title={`${monthLabel(month)}`} className="lg:col-span-2">
           {expenses.length === 0 ? (
             <Empty>No expenses this month.</Empty>
@@ -82,6 +86,35 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
           )}
         </Section>
       </div>
+
+      <Section title="Repeats every month">
+        <p className="text-sm text-muted mb-3">Rent, data, generator fuel… Added to Expenses by itself on the day you choose each month.</p>
+        {recurring.length > 0 && (
+          <ul className="divide-y divide-line/60 text-sm mb-4">
+            {recurring.map((r) => (
+              <li key={r.id} className={`py-2 flex flex-wrap items-center justify-between gap-2 ${r.active ? "" : "opacity-60"}`}>
+                <div>
+                  <span className="font-medium">{r.description}</span>
+                  <span className="text-muted"> · {labelFor(EXPENSE_CATEGORIES, r.category)} · day {r.dayOfMonth}</span>
+                  {!r.active && <span className="ml-2"><Pill>paused</Pill></span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="tabular-nums">{money(r.amount)}</span>
+                  <form action={toggleRecurring.bind(null, r.id, !r.active)}><button className="btn btn-sm">{r.active ? "Pause" : "Resume"}</button></form>
+                  <form action={deleteRecurring.bind(null, r.id)}><ConfirmButton message={`Stop repeating "${r.description}"? Expenses already added stay.`} confirmLabel="Remove">×</ConfirmButton></form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <form action={addRecurring} className="grid grid-cols-2 lg:grid-cols-6 gap-3 items-end">
+          <Field label="What is it?" className="col-span-2"><input name="description" className="input" required placeholder="e.g. Shop rent" /></Field>
+          <Field label="Category"><SelectOrOther name="category" options={EXPENSE_CATEGORIES} defaultValue="RENT" /></Field>
+          <Field label="Amount (₦)"><input name="amount" inputMode="numeric" className="input" required /></Field>
+          <Field label="Day of month"><input name="dayOfMonth" type="number" min={1} max={28} defaultValue={1} className="input" /></Field>
+          <button className="btn-primary">Add monthly cost</button>
+        </form>
+      </Section>
     </div>
   );
 }

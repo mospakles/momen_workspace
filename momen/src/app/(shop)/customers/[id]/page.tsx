@@ -6,6 +6,8 @@ import { deliveryDelta, isInHouse, orderTotals } from "@/lib/orders";
 import { ORDER_PURPOSES, labelFor } from "@/lib/constants";
 import { deleteMeasurement } from "@/actions/customers";
 import { addIssue } from "@/actions/misc";
+import { markCustomerPaid } from "@/actions/orders";
+import { MarkPaidButton } from "@/components/MarkPaidButton";
 import { MeasurementCard } from "@/components/MeasurementCard";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { Empty, PageHeader, Pill, Section, Stat, StatusBadge, BackLink } from "@/components/ui";
@@ -79,6 +81,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                 Remind to pay
               </a>
             )}
+            {owes > 0 && <MarkPaidButton action={markCustomerPaid.bind(null, c.id)} owed={owes} who={c.name} className="btn" />}
             <Link href={`/customers/${c.id}/edit`} className="btn">Edit</Link>
           </>
         }
@@ -161,7 +164,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
         )}
       </Section>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Section title="Fit comments & problems (from orders)">
           {fitHistory.length === 0 ? (
             <Empty>Nothing recorded yet.</Empty>

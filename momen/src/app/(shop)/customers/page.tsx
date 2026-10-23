@@ -6,13 +6,28 @@ import { Empty, PageHeader, Pill } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q } = await searchParams;
+export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; sort?: string }> }) {
+  const { q, sort } = await searchParams;
+  const best = sort === "best";
+  const now = new Date();
   const customers = await db.customer.findMany({
     where: q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { phone: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] } : undefined,
-    include: { orders: { include: { payments: true, costs: true } }, issues: { where: { resolved: false } } },
+    include: { orders: { include: { payments: true, costs: true, promises: true } }, issues: { where: { resolved: false } } },
     orderBy: { name: "asc" },
   });
+
+  // How each customer pays, for the "Best customers" view.
+  const rows = customers.map((c) => {
+    const active = c.orders.filter((o) => o.status !== "CANCELLED" && !isInHouse(o));
+    const spent = active.reduce((s, o) => s + orderTotals(o).paid, 0);
+    const owes = active.reduce((s, o) => s + Math.max(0, orderTotals(o).balance), 0);
+    const last = active.reduce<Date | null>((d, o) => (!d || o.orderDate > d ? o.orderDate : d), null);
+    const broken = active.flatMap((o) => o.promises).filter((p) => !p.kept && p.promisedDate < now).length;
+    const takenUnpaid = active.filter((o) => o.status === "DELIVERED" && orderTotals(o).balance > 0).length;
+    const tag = broken || takenUnpaid ? "slow" : active.length >= 2 && owes === 0 ? "reliable" : null;
+    return { c, active, spent, owes, last, tag };
+  });
+  if (best) rows.sort((a, b) => b.spent - a.spent || b.active.length - a.active.length);
 
   const phoneCounts = customers.reduce<Record<string, number>>((acc, c) => {
     const p = normalizePhone(c.phone);
@@ -24,7 +39,12 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   return (
     <div>
       <PageHeader title="Customers" subtitle={`${customers.length} customer${customers.length === 1 ? "" : "s"}`} actions={<Link href="/customers/new" className="btn-primary">+ New customer</Link>} />
+      <div className="flex flex-wrap gap-2 mb-3">
+        <Link href={`/customers${q ? `?q=${encodeURIComponent(q)}` : ""}`} className={`btn btn-sm ${!best ? "!bg-plum !text-white !border-plum" : ""}`}>A–Z</Link>
+        <Link href={`/customers?sort=best${q ? `&q=${encodeURIComponent(q)}` : ""}`} className={`btn btn-sm ${best ? "!bg-plum !text-white !border-plum" : ""}`}>Best customers</Link>
+      </div>
       <form className="mb-4">
+        {best && <input type="hidden" name="sort" value="best" />}
         <input name="q" defaultValue={q} placeholder="Search by name, phone or email…" className="input max-w-md" />
       </form>
       {customers.length === 0 ? (
@@ -43,16 +63,15 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
               </tr>
             </thead>
             <tbody>
-              {customers.map((c) => {
-                const active = c.orders.filter((o) => o.status !== "CANCELLED" && !isInHouse(o));
-                const spent = active.reduce((s, o) => s + orderTotals(o).paid, 0);
-                const owes = active.reduce((s, o) => s + Math.max(0, orderTotals(o).balance), 0);
-                const last = c.orders.reduce<Date | null>((d, o) => (!d || o.orderDate > d ? o.orderDate : d), null);
+              {rows.map(({ c, active, spent, owes, last, tag }, rank) => {
                 return (
                   <tr key={c.id}>
                     <td>
+                      {best && <span className="text-muted tabular-nums mr-2">{rank + 1}.</span>}
                       <Link href={`/customers/${c.id}`} className="link font-medium">{c.name}</Link>
                       {c.issues.length > 0 && <span className="ml-2"><Pill tone="red">issue</Pill></span>}
+                      {best && tag === "reliable" && <span className="ml-2"><Pill tone="green">reliable</Pill></span>}
+                      {best && tag === "slow" && <span className="ml-2"><Pill tone="amber">slow payer</Pill></span>}
                       {isDuplicate(c.phone) && <Link href={`/customers/${c.id}/edit`} className="ml-2"><Pill tone="amber">duplicate?</Pill></Link>}
                     </td>
                     <td className="whitespace-nowrap">{c.phone ?? "—"}</td>

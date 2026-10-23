@@ -99,3 +99,14 @@ export function reminderText(name: string, balance: number, outfits: string[]) {
   const what = outfits.length === 1 ? `your ${outfits[0]}` : `your ${outfits.length} outfits (${outfits.join(", ")})`;
   return `Hello ${first}, I hope you're doing well. This is a gentle reminder that there's a balance of ${money(balance)} on ${what}. You can pay by transfer whenever you're ready. Thank you so much!`;
 }
+
+export function readyText(name: string, outfit: string, balance: number) {
+  const first = name.trim().split(/\s+/)[0];
+  const pay = balance > 0 ? ` The balance is ${money(balance)}.` : "";
+  return `Hello ${first}! Good news: your ${outfit} is ready for pickup.${pay} Let me know when you'll come by. Thank you!`;
+}
+
+export function birthdayText(name: string) {
+  const first = name.trim().split(/\s+/)[0];
+  return `Happy birthday ${first}! 🎉 Wishing you a wonderful year ahead. Thank you for being such a lovely customer!`;
+}

@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { OPEN_STATUSES } from "@/lib/constants";
 import { fmtShortDate, money, relativeDays, startOfDay } from "@/lib/format";
-import { deliveryDelta, orderTotals, orderWho } from "@/lib/orders";
+import { deliveryDelta, needsDeposit, orderTotals, orderWho } from "@/lib/orders";
 import { Empty, PageHeader, Pill, StatusBadge } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +46,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
 
   return (
     <div>
-      <PageHeader title="Orders" actions={<Link href="/orders/new" className="btn-primary">+ New order</Link>} />
+      <PageHeader title="Orders" actions={<><Link href="/orders/board" className="btn">Board view</Link><Link href="/orders/new" className="btn-primary">+ New order</Link></>} />
       <div className="flex flex-wrap gap-2 mb-3">
         {FILTERS.map((f) => (
           <Link key={f.value} href={`/orders?filter=${f.value}${q ? `&q=${encodeURIComponent(q)}` : ""}`} className={`btn btn-sm ${filter === f.value ? "!bg-plum !text-white !border-plum" : ""}`}>
@@ -86,6 +86,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                     <td>
                       <Link href={`/orders/${o.id}`} className="link font-medium">{orderWho(o)}</Link>
                       <div className="text-muted">{o.title}{o.quantity > 1 ? ` ×${o.quantity}` : ""}</div>
+                      {needsDeposit(o) && <Pill tone="red">no deposit</Pill>}
                     </td>
                     <td><StatusBadge status={o.status} /></td>
                     <td className={`whitespace-nowrap ${late ? "text-red-700 font-medium" : ""}`}>

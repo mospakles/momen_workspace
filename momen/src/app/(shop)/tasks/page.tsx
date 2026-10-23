@@ -35,7 +35,7 @@ export default async function TasksPage() {
           <button className="btn-primary">Add</button>
         </form>
       </Section>
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Section title="Today & overdue"><TaskList tasks={overdueOrToday} /></Section>
         <Section title="Coming up"><TaskList tasks={later} /></Section>
         <Section title="Anytime"><TaskList tasks={someday} /></Section>
