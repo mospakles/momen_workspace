@@ -110,3 +110,6 @@ export function birthdayText(name: string) {
   const first = name.trim().split(/\s+/)[0];
   return `Happy birthday ${first}! 🎉 Wishing you a wonderful year ahead. Thank you for being such a lovely customer!`;
 }
+
+/** 3 → "3", 2.5 → "2.5" */
+export const fmtQty = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));

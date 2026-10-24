@@ -189,13 +189,25 @@ model RecurringExpense {
 
 // Fabric, lining, zips, thread… on hand.
 model Material {
-  id        Int      @id @default(autoincrement())
+  id        Int            @id @default(autoincrement())
   name      String
-  unit      String   @default("yards") // yards, pieces, rolls, packs…
-  quantity  Float    @default(0)
+  unit      String         @default("yards") // yards, pieces, rolls, packs…
+  quantity  Float          @default(0)
   lowAt     Float? // warn when quantity falls to this
   note      String?
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime       @updatedAt
+  moves     MaterialMove[]
+}
+
+// Every change to a material's quantity, for its history.
+model MaterialMove {
+  id         Int      @id @default(autoincrement())
+  materialId Int
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  change     Float // + bought, − used
+  after      Float // quantity after the change
+  note       String? // "Used", "Bought", "Corrected", or what it was for
+  createdAt  DateTime @default(now())
 }
 
 // Deleted records kept for 30 days so they can be restored.

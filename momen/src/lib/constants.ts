@@ -58,6 +58,8 @@ export const PHOTO_KINDS = [
   { value: "FINISHED", label: "Finished outfit" },
 ] as const;
 
+export const MATERIAL_UNITS = ["yards", "metres", "pieces", "rolls", "packs", "cones"];
+
 export const PAYMENT_METHODS = ["Transfer", "Cash", "POS"] as const;
 
 export type MeasurementSet = "FEMALE" | "MALE";

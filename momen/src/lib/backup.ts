@@ -19,6 +19,7 @@ export async function exportAll(db: PrismaClient) {
     rtwSizes: await db.rtwSize.findMany(),
     recurringExpenses: await db.recurringExpense.findMany(),
     materials: await db.material.findMany(),
+    materialMoves: await db.materialMove.findMany(),
     bin: await db.trash.findMany(),
   };
 }

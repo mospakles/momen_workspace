@@ -88,24 +88,58 @@ function num(fd: FormData, key: string) {
 }
 
 export async function addMaterial(fd: FormData) {
+  const quantity = num(fd, "quantity") ?? 0;
   await db.material.create({
-    data: { name: reqStr(fd, "name"), unit: str(fd, "unit") ?? "yards", quantity: num(fd, "quantity") ?? 0, lowAt: num(fd, "lowAt"), note: str(fd, "note") },
+    data: {
+      name: reqStr(fd, "name"),
+      unit: str(fd, "unit") ?? "yards",
+      quantity,
+      lowAt: num(fd, "lowAt"),
+      note: str(fd, "note"),
+      moves: quantity ? { create: { change: quantity, after: quantity, note: "Starting stock" } } : undefined,
+    },
   });
   revalidatePath("/stock");
 }
 
-/** Bought more (+) or used some (−). Never goes below zero. */
+/** Bought more (+) or used some (−). Never goes below zero. Logged in the material's history. */
 export async function adjustMaterial(id: number, direction: 1 | -1, fd: FormData) {
   const by = num(fd, "by");
   if (!by) return;
   const m = await db.material.findUniqueOrThrow({ where: { id } });
-  await db.material.update({ where: { id }, data: { quantity: Math.max(0, m.quantity + direction * Math.abs(by)) } });
+  const after = Math.max(0, m.quantity + direction * Math.abs(by));
+  const why = str(fd, "why");
+  await db.material.update({
+    where: { id },
+    data: { quantity: after, moves: { create: { change: after - m.quantity, after, note: [direction > 0 ? "Bought" : "Used", why].filter(Boolean).join(" · ") } } },
+  });
   revalidatePath("/stock");
+  revalidatePath(`/stock/${id}`);
+}
+
+export async function updateMaterial(id: number, fd: FormData) {
+  const m = await db.material.findUniqueOrThrow({ where: { id } });
+  const quantity = Math.max(0, num(fd, "quantity") ?? m.quantity);
+  await db.material.update({
+    where: { id },
+    data: {
+      name: reqStr(fd, "name"),
+      unit: str(fd, "unit") ?? m.unit,
+      quantity,
+      lowAt: num(fd, "lowAt"),
+      note: str(fd, "note"),
+      // A typed-in quantity is a stock count correction; keep it in the history.
+      moves: quantity !== m.quantity ? { create: { change: quantity - m.quantity, after: quantity, note: "Corrected" } } : undefined,
+    },
+  });
+  revalidatePath("/stock");
+  redirect(`/stock/${id}`);
 }
 
 export async function deleteMaterial(id: number) {
   await db.material.delete({ where: { id } });
   revalidatePath("/stock");
+  redirect("/stock");
 }
 
 // ---- Tasks ----
