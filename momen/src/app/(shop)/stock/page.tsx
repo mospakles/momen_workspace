@@ -17,6 +17,8 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const isLow = (m: (typeof allMaterials)[number]) => m.lowAt !== null && m.quantity <= m.lowAt;
   const low = allMaterials.filter(isLow);
   const needle = q?.toLowerCase();
+  const materialsValue = allMaterials.reduce((sum, m) => sum + Math.round(m.quantity * (m.unitPrice ?? 0)), 0);
+  const unpriced = allMaterials.filter((m) => m.unitPrice === null).length;
   const materials = needle ? allMaterials.filter((m) => `${m.name} ${m.note ?? ""}`.toLowerCase().includes(needle)) : allMaterials;
   const rtw = batches.map((o) => ({ o, p: rtwPieces(o) })).filter((x) => x.o.sizes.length > 0);
   const piecesLeft = rtw.reduce((s, x) => s + x.p.left, 0);
@@ -28,6 +30,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat label="Materials" value={allMaterials.length} hint={low.length ? `${low.length} running low` : "none running low"} tone={low.length ? "bad" : undefined} />
+        <Stat label="Materials value" value={money(materialsValue)} hint={unpriced ? `${unpriced} without a price yet` : "at what you paid"} />
         <Stat label="RTW pieces left" value={piecesLeft} />
         <Stat label="RTW stock value" value={money(stockValue)} hint="at selling price" />
       </div>
@@ -51,6 +54,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                     {m.note && <div className="text-xs text-muted">{m.note}</div>}
                   </div>
                   <div className="flex items-center gap-2">
+                    <span className="text-right text-xs text-muted tabular-nums w-28 hidden sm:block">
+                      {m.unitPrice !== null ? <>{money(m.unitPrice)} each<br />{money(Math.round(m.quantity * m.unitPrice))}</> : "no price"}
+                    </span>
                     <span className={`tabular-nums w-24 text-right ${low ? "text-red-700 font-medium" : ""}`}>{fmtQty(m.quantity)} {m.unit}</span>
                     <form className="flex gap-1">
                       <input name="by" inputMode="decimal" placeholder="Qty" className="input w-16 py-1" />
@@ -69,6 +75,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
           <Field label="Unit">
             <select name="unit" className="input" defaultValue="yards">{MATERIAL_UNITS.map((u) => <option key={u}>{u}</option>)}</select>
           </Field>
+          <Field label="Price per unit (₦)"><input name="unitPrice" inputMode="numeric" className="input" placeholder="optional" /></Field>
           <Field label="Warn me at"><input name="lowAt" inputMode="decimal" className="input" placeholder="e.g. 5" /></Field>
           <button className="btn-primary">Add material</button>
         </form>

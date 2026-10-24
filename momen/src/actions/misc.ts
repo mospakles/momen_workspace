@@ -95,6 +95,7 @@ export async function addMaterial(fd: FormData) {
       unit: str(fd, "unit") ?? "yards",
       quantity,
       lowAt: num(fd, "lowAt"),
+      unitPrice: int(fd, "unitPrice"),
       note: str(fd, "note"),
       moves: quantity ? { create: { change: quantity, after: quantity, note: "Starting stock" } } : undefined,
     },
@@ -109,9 +110,15 @@ export async function adjustMaterial(id: number, direction: 1 | -1, fd: FormData
   const m = await db.material.findUniqueOrThrow({ where: { id } });
   const after = Math.max(0, m.quantity + direction * Math.abs(by));
   const why = str(fd, "why");
+  // What was paid for a purchase also sets the price per unit.
+  const paid = direction > 0 ? int(fd, "paid") : null;
   await db.material.update({
     where: { id },
-    data: { quantity: after, moves: { create: { change: after - m.quantity, after, note: [direction > 0 ? "Bought" : "Used", why].filter(Boolean).join(" · ") } } },
+    data: {
+      quantity: after,
+      ...(paid ? { unitPrice: Math.round(paid / Math.abs(by)) } : {}),
+      moves: { create: { change: after - m.quantity, after, cost: paid, note: [direction > 0 ? "Bought" : "Used", why].filter(Boolean).join(" · ") } },
+    },
   });
   revalidatePath("/stock");
   revalidatePath(`/stock/${id}`);
@@ -127,6 +134,7 @@ export async function updateMaterial(id: number, fd: FormData) {
       unit: str(fd, "unit") ?? m.unit,
       quantity,
       lowAt: num(fd, "lowAt"),
+      unitPrice: int(fd, "unitPrice"),
       note: str(fd, "note"),
       // A typed-in quantity is a stock count correction; keep it in the history.
       moves: quantity !== m.quantity ? { create: { change: quantity - m.quantity, after: quantity, note: "Corrected" } } : undefined,

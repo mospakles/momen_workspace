@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { MATERIAL_UNITS } from "@/lib/constants";
-import { fmtDate, fmtQty } from "@/lib/format";
+import { fmtDate, fmtQty, money } from "@/lib/format";
 import { adjustMaterial, deleteMaterial, updateMaterial } from "@/actions/misc";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -24,33 +24,40 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
         <PageHeader title={m.name} subtitle={m.note ?? undefined} />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat label="On hand" value={`${fmtQty(m.quantity)} ${m.unit}`} tone={low ? "bad" : undefined} hint={low ? "running low" : undefined} />
+        <Stat
+          label="Price"
+          value={m.unitPrice !== null ? money(m.unitPrice) : "—"}
+          hint={m.unitPrice !== null ? `per ${m.unit.replace(/s$/, "")} · ${money(Math.round(m.quantity * m.unitPrice))} on hand` : "add one below"}
+        />
         <Stat label="Warn me at" value={m.lowAt !== null ? `${fmtQty(m.lowAt)} ${m.unit}` : "—"} />
         <Stat label="Last changed" value={<span className="text-base">{fmtDate(m.updatedAt)}</span>} />
       </div>
 
       <Section title="Used or bought some">
-        <form className="grid grid-cols-2 sm:grid-cols-[10rem_1fr_auto_auto] gap-2">
-          <input name="by" inputMode="decimal" placeholder={`How many ${m.unit}`} className="input col-span-2 sm:col-span-1" required />
-          <input name="why" placeholder="What for (optional), e.g. Agbada for Tunde" className="input col-span-2 sm:col-span-1" />
+        <form className="grid grid-cols-2 sm:grid-cols-[9rem_9rem_1fr_auto_auto] gap-2">
+          <input name="by" inputMode="decimal" placeholder={`How many ${m.unit}`} className="input" required />
+          <input name="paid" inputMode="numeric" placeholder="Total paid ₦ (if bought)" className="input" />
+          <input name="why" placeholder="What for / where from (optional)" className="input col-span-2 sm:col-span-1" />
           <button formAction={adjustMaterial.bind(null, id, -1)} className="btn">Used</button>
           <button formAction={adjustMaterial.bind(null, id, 1)} className="btn-primary">Bought</button>
         </form>
       </Section>
 
       <Section title="Edit">
-        <form action={updateMaterial.bind(null, id)} className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+        <form key={m.updatedAt.getTime()} action={updateMaterial.bind(null, id)} className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-end">
           <Field label="Name" className="col-span-2"><input name="name" className="input" required defaultValue={m.name} /></Field>
           <Field label="Quantity"><input name="quantity" inputMode="decimal" className="input" defaultValue={fmtQty(m.quantity)} /></Field>
           <Field label="Unit">
             <select name="unit" className="input" defaultValue={m.unit}>{units.map((u) => <option key={u}>{u}</option>)}</select>
           </Field>
+          <Field label="Price per unit (₦)"><input name="unitPrice" inputMode="numeric" className="input" placeholder="optional" defaultValue={m.unitPrice ?? ""} /></Field>
           <Field label="Warn me at"><input name="lowAt" inputMode="decimal" className="input" placeholder="blank = never" defaultValue={m.lowAt !== null ? fmtQty(m.lowAt) : ""} /></Field>
-          <Field label="Note" className="col-span-2 lg:col-span-3"><input name="note" className="input" placeholder="e.g. colour, where it's kept, supplier" defaultValue={m.note ?? ""} /></Field>
+          <Field label="Note" className="col-span-2"><input name="note" className="input" placeholder="e.g. colour, where it's kept, supplier" defaultValue={m.note ?? ""} /></Field>
           <div className="col-span-2 lg:col-span-4"><SubmitButton>Save changes</SubmitButton></div>
         </form>
-        <p className="text-xs text-muted mt-2">Changing the quantity here is recorded as a stock-count correction.</p>
+        <p className="text-xs text-muted mt-2">Changing the quantity here is recorded as a stock-count correction. Entering “Total paid” when buying updates the price per unit.</p>
       </Section>
 
       <Section title="History">
@@ -63,6 +70,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
                 <div>
                   <span className="text-muted">{fmtDate(mv.createdAt)} · {mv.createdAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
                   {mv.note && <span> · {mv.note}</span>}
+                  {mv.cost !== null && <span className="text-muted"> · paid {money(mv.cost)}</span>}
                 </div>
                 <div className="text-right tabular-nums whitespace-nowrap">
                   <Pill tone={mv.change >= 0 ? "green" : "amber"}>{mv.change >= 0 ? "+" : "−"}{fmtQty(Math.abs(mv.change))}</Pill>

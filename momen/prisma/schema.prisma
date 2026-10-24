@@ -194,6 +194,7 @@ model Material {
   unit      String         @default("yards") // yards, pieces, rolls, packs…
   quantity  Float          @default(0)
   lowAt     Float? // warn when quantity falls to this
+  unitPrice Int? // ₦ per unit, from the last purchase or typed in
   note      String?
   updatedAt DateTime       @updatedAt
   moves     MaterialMove[]
@@ -207,6 +208,7 @@ model MaterialMove {
   change     Float // + bought, − used
   after      Float // quantity after the change
   note       String? // "Used", "Bought", "Corrected", or what it was for
+  cost       Int? // ₦ paid, for purchases
   createdAt  DateTime @default(now())
 }
 
