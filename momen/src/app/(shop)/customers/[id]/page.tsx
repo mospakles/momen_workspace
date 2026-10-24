@@ -32,8 +32,10 @@ export default async function CustomerPage({ params, searchParams }: { params: P
     ? (await db.customer.findMany({ where: { id: { not: c.id }, phone: { not: null } } })).filter((d) => normalizePhone(d.phone) === phone)
     : [];
 
-  // Outfits they modelled for the shop are listed but don't count as their spending.
-  const active = c.orders.filter((o) => o.status !== "CANCELLED" && !isInHouse(o));
+  // Outfits they modelled for the brand are listed separately and don't count as their spending.
+  const ownOrders = c.orders.filter((o) => !isInHouse(o));
+  const modelled = c.orders.filter(isInHouse);
+  const active = ownOrders.filter((o) => o.status !== "CANCELLED");
   const totals = active.map(orderTotals);
   const billed = active.reduce((s, o) => s + o.price, 0);
   const paid = totals.reduce((s, t) => s + t.paid, 0);
@@ -106,7 +108,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
       )}
 
       <Section title="Orders">
-        {c.orders.length === 0 ? (
+        {ownOrders.length === 0 ? (
           <Empty>No orders yet.</Empty>
         ) : (
           <div className="overflow-x-auto -mx-4">
@@ -115,14 +117,13 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                 <tr><th>Outfit</th><th>Status</th><th>Due</th><th>Delivered</th><th className="text-right">Price</th><th className="text-right">Balance</th></tr>
               </thead>
               <tbody>
-                {c.orders.map((o) => {
+                {ownOrders.map((o) => {
                   const t = orderTotals(o);
                   const delta = deliveryDelta(o);
                   return (
                     <tr key={o.id}>
                       <td>
                         <Link href={`/orders/${o.id}`} className="link">{o.title}</Link>
-                        {isInHouse(o) && <span className="ml-2"><Pill tone="plum">{labelFor(ORDER_PURPOSES, o.purpose)}</Pill></span>}
                         <div className="text-xs text-muted">{fmtDate(o.orderDate)}</div>
                       </td>
                       <td><StatusBadge status={o.status} /></td>
@@ -133,7 +134,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                         {delta !== null && delta < 0 && <div><Pill tone="red">{-delta}d late</Pill></div>}
                       </td>
                       <td className="text-right tabular-nums">{money(o.price)}</td>
-                      <td className={`text-right tabular-nums ${t.balance > 0 ? "text-red-700 font-medium" : "text-muted"}`}>{t.balance > 0 ? money(t.balance) : isInHouse(o) ? "—" : "Paid"}</td>
+                      <td className={`text-right tabular-nums ${t.balance > 0 ? "text-red-700 font-medium" : "text-muted"}`}>{t.balance > 0 ? money(t.balance) : "Paid"}</td>
                     </tr>
                   );
                 })}
@@ -142,6 +143,22 @@ export default async function CustomerPage({ params, searchParams }: { params: P
           </div>
         )}
       </Section>
+
+      {modelled.length > 0 && (
+        <Section title="Modelled for Momen">
+          <ul className="divide-y divide-line/60 text-sm">
+            {modelled.map((o) => (
+              <li key={o.id} className="py-2 flex justify-between gap-3">
+                <div>
+                  <Link href={`/orders/${o.id}`} className="link">{o.title}</Link>
+                  <span className="ml-2"><Pill tone="plum">{labelFor(ORDER_PURPOSES, o.purpose)}</Pill></span>
+                </div>
+                <span className="text-muted whitespace-nowrap">{fmtDate(o.orderDate)}</span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <Section title="Measurements" actions={<Link href={`/customers/${c.id}/measurements/new`} className="btn btn-sm">+ New measurements</Link>}>
         <div id="measurements" />

@@ -63,7 +63,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="space-y-6">
-      <BackLink href="/orders">Orders</BackLink>
+      {inHouse ? <BackLink href="/in-house">In-house</BackLink> : <BackLink href="/orders">Orders</BackLink>}
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>

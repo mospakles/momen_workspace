@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { fmtDate, money, normalizePhone } from "@/lib/format";
 import { isInHouse, orderTotals } from "@/lib/orders";
 import { Empty, PageHeader, Pill } from "@/components/ui";
+import { SearchBox } from "@/components/SearchBox";
 
 export const dynamic = "force-dynamic";
 
@@ -43,10 +44,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
         <Link href={`/customers${q ? `?q=${encodeURIComponent(q)}` : ""}`} className={`btn btn-sm ${!best ? "!bg-plum !text-white !border-plum" : ""}`}>A–Z</Link>
         <Link href={`/customers?sort=best${q ? `&q=${encodeURIComponent(q)}` : ""}`} className={`btn btn-sm ${best ? "!bg-plum !text-white !border-plum" : ""}`}>Best customers</Link>
       </div>
-      <form className="mb-4">
-        {best && <input type="hidden" name="sort" value="best" />}
-        <input name="q" defaultValue={q} placeholder="Search by name, phone or email…" className="input max-w-md" />
-      </form>
+      <SearchBox placeholder="Search by name, phone or email…" className="mb-4" />
       {customers.length === 0 ? (
         <Empty>No customers yet. <Link href="/customers/new" className="link">Add your first one</Link>.</Empty>
       ) : (

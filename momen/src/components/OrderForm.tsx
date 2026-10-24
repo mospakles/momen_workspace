@@ -10,16 +10,17 @@ type Props = {
   order?: Order;
   customers?: Customer[];
   customerId?: number;
+  purpose?: string; // preselected for a new order
   measurements: Measurement[];
   submitLabel: string;
 };
 
-export function OrderForm({ action, order, customers, customerId, measurements, submitLabel }: Props) {
+export function OrderForm({ action, order, customers, customerId, purpose, measurements, submitLabel }: Props) {
   const isNew = !order;
   return (
     <form action={action} className="card space-y-4 max-w-3xl">
       <div className="grid sm:grid-cols-2 gap-4">
-        {customers && <OrderPurposeFields customers={customers} purpose={order?.purpose} customerId={order ? order.customerId : customerId} />}
+        {customers && <OrderPurposeFields customers={customers} purpose={order?.purpose ?? purpose} customerId={order ? order.customerId : customerId} />}
         <Field label="Outfit / style *" className="sm:col-span-2">
           <input name="title" className="input" required placeholder="e.g. Agbada, Kaftan, Senator, 2-piece suit" defaultValue={order?.title} />
         </Field>

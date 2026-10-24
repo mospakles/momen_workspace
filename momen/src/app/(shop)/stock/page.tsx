@@ -5,6 +5,7 @@ import { MATERIAL_UNITS } from "@/lib/constants";
 import { rtwPieces } from "@/lib/orders";
 import { addMaterial, adjustMaterial } from "@/actions/misc";
 import { Empty, Field, PageHeader, Pill, Section, Stat } from "@/components/ui";
+import { SearchBox } from "@/components/SearchBox";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +37,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
       </div>
 
       <Section title="Fabric & materials" actions={q ? <span className="text-sm text-muted">{materials.length} of {allMaterials.length}</span> : undefined}>
-        <form className="mb-3 flex gap-2">
-          <input name="q" defaultValue={q} placeholder="Search materials…" className="input max-w-md" />
-          {q && <Link href="/stock" className="btn">Clear</Link>}
-        </form>
+        <SearchBox placeholder="Search materials…" className="mb-3" />
         {materials.length === 0 ? (
           <Empty>{q ? `Nothing matches “${q}”.` : "Nothing yet. Add your lining, zips, thread… below."}</Empty>
         ) : (

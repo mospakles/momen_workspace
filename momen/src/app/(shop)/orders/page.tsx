@@ -5,6 +5,7 @@ import { OPEN_STATUSES } from "@/lib/constants";
 import { fmtShortDate, money, relativeDays, startOfDay } from "@/lib/format";
 import { deliveryDelta, needsDeposit, orderTotals, orderWho } from "@/lib/orders";
 import { Empty, PageHeader, Pill, StatusBadge } from "@/components/ui";
+import { SearchBox } from "@/components/SearchBox";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,6 @@ const FILTERS = [
   { value: "overdue", label: "Overdue" },
   { value: "owing", label: "Owing money" },
   { value: "delivered", label: "Delivered" },
-  { value: "inhouse", label: "In-house (shoots, ads, RTW)" },
   { value: "all", label: "All" },
 ];
 
@@ -21,18 +21,18 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const { filter = "open", q } = await searchParams;
   const today = startOfDay();
 
-  const where: Prisma.OrderWhereInput = {};
+  // Customer orders only; shoots, ads and ready-to-wear live on the In-house page.
+  const where: Prisma.OrderWhereInput = { purpose: "CUSTOMER" };
   if (filter === "open") where.status = { in: OPEN_STATUSES };
   if (filter === "overdue") Object.assign(where, { status: { in: OPEN_STATUSES }, dueDate: { lt: today } });
   if (filter === "delivered") where.status = "DELIVERED";
   if (filter === "owing") where.status = { not: "CANCELLED" };
-  if (filter === "inhouse") where.purpose = { not: "CUSTOMER" };
   if (q) where.OR = [{ title: { contains: q, mode: "insensitive" } }, { customer: { name: { contains: q, mode: "insensitive" } } }];
 
   let orders = await db.order.findMany({
     where,
     include: { customer: true, payments: true, costs: true },
-    orderBy: filter === "delivered" || filter === "all" || filter === "inhouse" ? { orderDate: "desc" } : { dueDate: "asc" },
+    orderBy: filter === "delivered" || filter === "all" ? { orderDate: "desc" } : { dueDate: "asc" },
   });
   if (filter === "owing") orders = orders.filter((o) => orderTotals(o).balance > 0);
 
@@ -46,7 +46,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
 
   return (
     <div>
-      <PageHeader title="Orders" actions={<><Link href="/orders/board" className="btn">Board view</Link><Link href="/orders/new" className="btn-primary">+ New order</Link></>} />
+      <PageHeader
+        title="Orders"
+        subtitle={<>Customer orders. Shoots, ads and ready-to-wear are under <Link href="/in-house" className="link">In-house</Link>.</>}
+        actions={<><Link href="/orders/board" className="btn">Board view</Link><Link href="/orders/new" className="btn-primary">+ New order</Link></>}
+      />
       <div className="flex flex-wrap gap-2 mb-3">
         {FILTERS.map((f) => (
           <Link key={f.value} href={`/orders?filter=${f.value}${q ? `&q=${encodeURIComponent(q)}` : ""}`} className={`btn btn-sm ${filter === f.value ? "!bg-plum !text-white !border-plum" : ""}`}>
@@ -54,10 +58,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           </Link>
         ))}
       </div>
-      <form className="mb-4">
-        <input type="hidden" name="filter" value={filter} />
-        <input name="q" defaultValue={q} placeholder="Search outfit or customer…" className="input max-w-md" />
-      </form>
+      <SearchBox placeholder="Search outfit or customer…" className="mb-4" />
 
       {orders.length === 0 ? (
         <Empty>No orders here.</Empty>
@@ -66,7 +67,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           <table className="table">
             <thead>
               <tr>
-                <th>For · Outfit</th>
+                <th>Customer · Outfit</th>
                 <th>Status</th>
                 <th>Due</th>
                 <th className="text-right">Price</th>
