@@ -7,7 +7,7 @@ import { Empty, PageHeader, Pill, Section } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
-const KINDS: Record<string, string> = { CUSTOMER: "Customer", ORDER: "Order", PAYMENT: "Payment", COST: "Cost", EXPENSE: "Expense" };
+const KINDS: Record<string, string> = { CUSTOMER: "Customer", ORDER: "Order", PAYMENT: "Payment", COST: "Cost", EXPENSE: "Expense", MEASUREMENT: "Measurements" };
 
 export default async function BinPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error } = await searchParams;
@@ -16,7 +16,7 @@ export default async function BinPage({ searchParams }: { searchParams: Promise<
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Bin" subtitle={`Deleted customers, orders, payments, costs and expenses are kept here for ${KEEP_DAYS} days.`} />
+      <PageHeader title="Bin" subtitle={`Deleted customers, orders, measurements, payments, costs and expenses are kept here for ${KEEP_DAYS} days.`} />
       {error && <p className="card border-red-300 bg-red-50 text-sm text-red-800">Couldn&apos;t restore: {error}</p>}
       <Section title={`${items.length} item${items.length === 1 ? "" : "s"}`}>
         {items.length === 0 ? (

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { bool, date, int, reqStr, str } from "@/lib/form";
 import { toMonth } from "@/lib/format";
 import { binExpense, deleteFromBin, restoreFromBin } from "@/lib/trash";
+import { BUSINESS_FIELDS } from "@/lib/settings";
 
 // ---- Expenses ----
 
@@ -148,6 +149,19 @@ export async function deleteMaterial(id: number) {
   await db.material.delete({ where: { id } });
   revalidatePath("/stock");
   redirect("/stock");
+}
+
+// ---- Business details ----
+
+export async function saveBusiness(fd: FormData) {
+  await db.$transaction(
+    BUSINESS_FIELDS.map((f) => {
+      const value = String(fd.get(f.key) ?? "").trim();
+      return db.setting.upsert({ where: { key: f.key }, create: { key: f.key, value }, update: { value } });
+    }),
+  );
+  for (const p of ["/settings", "/portfolio", "/orders", "/customers"]) revalidatePath(p, "layout");
+  redirect("/settings?saved=1");
 }
 
 // ---- Tasks ----

@@ -43,6 +43,9 @@ export function Nav() {
             </Link>
           ))}
         </nav>
+        <Link href="/settings" className={`text-xs px-3 mb-1 ${active("/settings") ? "text-plum font-medium" : "text-muted hover:text-ink"}`}>
+          Business details
+        </Link>
         <Link href="/portfolio" target="_blank" className="text-xs px-3 mb-1 text-muted hover:text-ink">
           Public portfolio ↗
         </Link>

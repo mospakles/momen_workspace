@@ -3,8 +3,10 @@ import { SESSION_COOKIE, isValidSession } from "@/lib/auth";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  // The public portfolio only ever shows photos ticked "Show in portfolio".
-  if (pathname.startsWith("/login") || pathname === "/portfolio" || pathname.startsWith("/api/portfolio/")) return NextResponse.next();
+  // The public portfolio only ever shows photos ticked "Show in portfolio"; /brand holds the logo.
+  if (pathname.startsWith("/login") || pathname === "/portfolio" || pathname.startsWith("/api/portfolio/") || pathname.startsWith("/brand/")) {
+    return NextResponse.next();
+  }
 
   // The daily backup cron has no session; it proves itself with CRON_SECRET instead.
   const cronSecret = process.env.CRON_SECRET;

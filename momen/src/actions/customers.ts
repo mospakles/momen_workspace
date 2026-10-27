@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { date, reqStr, str } from "@/lib/form";
 import { MEASUREMENT_FIELDS } from "@/lib/constants";
 import { normalizePhone } from "@/lib/format";
-import { binCustomer } from "@/lib/trash";
+import { binCustomer, binMeasurement } from "@/lib/trash";
 
 function customerData(fd: FormData) {
   return {
@@ -115,6 +115,12 @@ export async function saveMeasurement(customerId: number, measurementId: number 
 }
 
 export async function deleteMeasurement(customerId: number, id: number) {
-  await db.measurement.delete({ where: { id } });
+  await binMeasurement(id);
   revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/bin");
+}
+
+export async function deleteMeasurementAndReturn(customerId: number, id: number) {
+  await deleteMeasurement(customerId, id);
+  redirect(`/customers/${customerId}#measurements`);
 }

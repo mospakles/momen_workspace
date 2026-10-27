@@ -48,6 +48,13 @@ export async function binCost(id: number) {
   await db.orderCost.delete({ where: { id } });
 }
 
+export async function binMeasurement(id: number) {
+  const m = await db.measurement.findUniqueOrThrow({ where: { id }, include: { customer: true, orders: { select: { id: true } } } });
+  const { customer, ...measurement } = m;
+  await toBin("MEASUREMENT", `Measurements · ${customer.name} · ${fmtDate(m.takenAt)}`, measurement);
+  await db.measurement.delete({ where: { id } });
+}
+
 export async function binExpense(id: number) {
   const e = await db.expense.findUniqueOrThrow({ where: { id } });
   await toBin("EXPENSE", `${money(e.amount)} · ${e.description} · ${fmtDate(e.date)}`, e);
@@ -96,6 +103,13 @@ export async function restoreFromBin(trashId: number) {
       if (t.kind === "PAYMENT") await tx.payment.create({ data });
       else await tx.orderCost.create({ data });
       href = `/orders/${data.orderId}`;
+    } else if (t.kind === "MEASUREMENT") {
+      const { orders, ...measurement } = data;
+      if (!(await tx.customer.findUnique({ where: { id: measurement.customerId } }))) throw new Error("This customer is gone. Restore the customer first.");
+      await tx.measurement.create({ data: measurement });
+      // Orders that used these measurements were unlinked on delete; link back the ones still unlinked.
+      await tx.order.updateMany({ where: { id: { in: orders.map((o: { id: number }) => o.id) }, measurementId: null }, data: { measurementId: measurement.id } });
+      href = `/customers/${measurement.customerId}#measurements`;
     } else if (t.kind === "EXPENSE") {
       await tx.expense.create({ data });
       href = `/expenses/${data.id}`;

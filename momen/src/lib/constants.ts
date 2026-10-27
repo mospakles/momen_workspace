@@ -71,7 +71,7 @@ export const MEASUREMENT_SETS: Record<MeasurementSet, { label: string; groups: {
     label: "Male",
     groups: [
       { title: "Top", fields: ["Neck", "Chest", "Stomach", "Shoulder", "Across back", "Armhole"] },
-      { title: "Sleeves", fields: ["Sleeve length", "Short sleeve length", "Round sleeve (arm)", "Wrist"] },
+      { title: "Sleeves", fields: ["Sleeve length", "Three-quarter sleeve length", "Short sleeve length", "Round sleeve (arm)", "Wrist"] },
       { title: "Lengths", fields: ["Shirt / top length", "Kaftan / senator length", "Jacket length", "Agbada length", "Agbada width", "Cap (head)"] },
       { title: "Trousers", fields: ["Waist", "Hips", "Trouser length", "Thigh", "Knee", "Ankle / bottom", "Crotch"] },
     ],
@@ -80,7 +80,7 @@ export const MEASUREMENT_SETS: Record<MeasurementSet, { label: string; groups: {
     label: "Female",
     groups: [
       { title: "Top", fields: ["Bust", "Under bust", "Waist", "Hips", "Shoulder", "Neck", "Bust point", "Nipple to nipple", "Shoulder to under bust", "Shoulder to waist", "Half length", "Armhole"] },
-      { title: "Sleeves", fields: ["Sleeve length", "Round sleeve (arm)", "Elbow", "Wrist"] },
+      { title: "Sleeves", fields: ["Sleeve length", "Three-quarter sleeve length", "Short sleeve length", "Round sleeve (arm)", "Elbow", "Wrist"] },
       { title: "Lengths", fields: ["Blouse length", "Waist to knee", "Skirt length", "Gown length"] },
       { title: "Trousers", fields: ["Trouser length", "Thigh", "Knee", "Ankle / bottom", "Crotch"] },
     ],

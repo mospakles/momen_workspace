@@ -30,6 +30,7 @@ import { TaskList } from "@/components/TaskList";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { PhotoUploadForm } from "@/components/PhotoUploadForm";
 import { MarkPaidButton } from "@/components/MarkPaidButton";
+import { getBusiness } from "@/lib/settings";
 import { BackLink, Empty, Pill, Section, Select, Stat, StatusBadge } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
     },
   });
   if (!o) notFound();
+  const business = await getBusiness();
   const workers = await db.orderCost.findMany({ where: { paidTo: { not: null } }, distinct: ["paidTo"], select: { paidTo: true } });
 
   const t = orderTotals(o);
@@ -85,9 +87,10 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             <a href={whatsappLink(o.customer.phone, readyText(o.customer.name, o.title, t.balance))} target="_blank" className="btn-primary">Tell them it&apos;s ready</a>
           )}
           {!inHouse && o.customer?.phone && (
-            <a href={whatsappLink(o.customer.phone, receiptText(o))} target="_blank" className="btn">Send receipt</a>
+            <a href={whatsappLink(o.customer.phone, receiptText(o, business.name))} target="_blank" className="btn">Send receipt</a>
           )}
           {t.balance > 0 && <MarkPaidButton action={markOrderPaid.bind(null, id)} owed={t.balance} who={o.customer?.name ?? "Customer"} className="btn-primary" />}
+          {!inHouse && <Link href={`/orders/${id}/invoice`} className="btn">Invoice</Link>}
           {!inHouse && <Link href={`/orders/${id}/receipt`} className="btn">Receipt</Link>}
           <Link href={`/orders/${id}/edit`} className="btn">Edit</Link>
         </div>

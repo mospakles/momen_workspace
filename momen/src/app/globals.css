@@ -64,7 +64,16 @@ body {
   }
 }
 
+@page {
+  size: A4;
+  margin: 14mm;
+}
+
 @media print {
+  .invoice {
+    border: none;
+    padding: 0;
+  }
   .no-print {
     display: none !important;
   }

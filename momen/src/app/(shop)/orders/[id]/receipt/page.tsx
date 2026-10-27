@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { fmtDate, money } from "@/lib/format";
-import { SHOP_NAME, orderTotals } from "@/lib/orders";
+import { orderTotals } from "@/lib/orders";
+import { getBusiness } from "@/lib/settings";
 import { PrintButton } from "@/components/PrintButton";
 import { BackLink } from "@/components/ui";
 
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
+  const business = await getBusiness();
   const o = await db.order.findUnique({ where: { id }, include: { customer: true, payments: { orderBy: { paidAt: "asc" } }, costs: true } });
   if (!o) notFound();
   const t = orderTotals(o);
@@ -22,7 +24,9 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       <div className="card p-6 space-y-4">
         <div className="flex justify-between items-start">
           <div>
-            <div className="font-display text-2xl text-plum">{SHOP_NAME}</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/momen-logo.png" alt={business.name} className="h-8 w-auto" />
+            {business.phone && <div className="text-xs text-muted mt-1">{business.phone}</div>}
             <div className="text-xs text-muted">Receipt #{o.id}</div>
           </div>
           <div className="text-right text-sm">

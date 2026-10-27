@@ -2,8 +2,19 @@ import Link from "next/link";
 import type { Measurement } from "@prisma/client";
 import { MEASUREMENT_SETS, guessMeasurementSet, setFields } from "@/lib/constants";
 import { fmtDate } from "@/lib/format";
+import { ConfirmButton } from "./ConfirmButton";
 
-export function MeasurementCard({ m, editHref, compact }: { m: Measurement; editHref?: string; compact?: boolean }) {
+export function MeasurementCard({
+  m,
+  editHref,
+  deleteAction,
+  compact,
+}: {
+  m: Measurement;
+  editHref?: string;
+  deleteAction?: () => Promise<void>;
+  compact?: boolean;
+}) {
   const values: Record<string, string> = JSON.parse(m.values);
   const set = guessMeasurementSet(values);
   // Standard ones in the order they're taken, then any extras.
@@ -16,7 +27,16 @@ export function MeasurementCard({ m, editHref, compact }: { m: Measurement; edit
         <div className="text-sm font-medium">
           {fmtDate(m.takenAt)} <span className="text-muted font-normal">· {set ? `${MEASUREMENT_SETS[set].label} · ` : ""}{m.unit === "cm" ? "cm" : "inches"}</span>
         </div>
-        {editHref && <Link href={editHref} className="link text-xs no-print">Edit</Link>}
+        <div className="flex gap-1.5 no-print">
+          {editHref && <Link href={editHref} className="btn btn-sm">Edit</Link>}
+          {deleteAction && (
+            <form action={deleteAction}>
+              <ConfirmButton className="btn btn-sm text-red-700" message={`Delete the measurements taken on ${fmtDate(m.takenAt)}? You can restore them from the Bin for 30 days.`}>
+                Delete
+              </ConfirmButton>
+            </form>
+          )}
+        </div>
       </div>
       {entries.length === 0 ? (
         <p className="text-sm text-muted">No values recorded.</p>

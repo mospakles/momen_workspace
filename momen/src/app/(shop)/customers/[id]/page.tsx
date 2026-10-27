@@ -9,7 +9,6 @@ import { addIssue } from "@/actions/misc";
 import { markCustomerPaid } from "@/actions/orders";
 import { MarkPaidButton } from "@/components/MarkPaidButton";
 import { MeasurementCard } from "@/components/MeasurementCard";
-import { ConfirmButton } from "@/components/ConfirmButton";
 import { Empty, PageHeader, Pill, Section, Stat, StatusBadge, BackLink } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -83,6 +82,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                 Remind to pay
               </a>
             )}
+            {owes > 0 && <Link href={`/customers/${c.id}/invoice`} className="btn">Invoice</Link>}
             {owes > 0 && <MarkPaidButton action={markCustomerPaid.bind(null, c.id)} owed={owes} who={c.name} className="btn" />}
             <Link href={`/customers/${c.id}/edit`} className="btn">Edit</Link>
           </>
@@ -169,12 +169,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
             {c.measurements.map((m, i) => (
               <div key={m.id}>
                 {i === 1 && <div className="label mt-4">Older measurements</div>}
-                <MeasurementCard m={m} editHref={`/customers/${c.id}/measurements/${m.id}`} />
-                {i > 0 && (
-                  <form action={deleteMeasurement.bind(null, c.id, m.id)} className="text-right">
-                    <ConfirmButton message="Delete this set of measurements?">Delete</ConfirmButton>
-                  </form>
-                )}
+                <MeasurementCard m={m} editHref={`/customers/${c.id}/measurements/${m.id}`} deleteAction={deleteMeasurement.bind(null, c.id, m.id)} />
               </div>
             ))}
           </div>

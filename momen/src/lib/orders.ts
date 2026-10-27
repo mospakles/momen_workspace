@@ -1,7 +1,5 @@
 import type { Customer, Order, OrderCost, Payment } from "@prisma/client";
-import { fmtDate, money } from "./format";
-
-export const SHOP_NAME = process.env.SHOP_NAME ?? "Momen";
+import { addDays, fmtDate, money } from "./format";
 
 const PURPOSE_SHORT: Record<string, string> = { MODELLING: "Modelling", ADVERT: "Advert", RTW: "Ready-to-wear" };
 
@@ -40,10 +38,10 @@ export function workerKey(name: string | null) {
 }
 
 /** Plain-text receipt for WhatsApp: outfit, price, each payment and what's left. */
-export function receiptText(o: Order & { customer: Customer | null; payments: Payment[]; costs: OrderCost[] }) {
+export function receiptText(o: Order & { customer: Customer | null; payments: Payment[]; costs: OrderCost[] }, shopName: string) {
   const t = orderTotals(o);
   const lines = [
-    `*${SHOP_NAME} · Receipt #${o.id}*`,
+    `*${shopName} · Receipt #${o.id}*`,
     `${o.customer?.name ?? ""}`,
     "",
     `${o.title}${o.quantity > 1 ? ` ×${o.quantity}` : ""}: ${money(o.price)}`,
@@ -72,4 +70,37 @@ export function rtwPieces(o: Order & { costs: OrderCost[]; sizes: { made: number
   const costEach = made ? Math.round(cost / made) : 0;
   const priceEach = made ? Math.round(o.price / made) : 0;
   return { made, sold, left: made - sold, costEach, priceEach, profitEach: priceEach - costEach };
+}
+
+export const invoiceNumber = (orderId: number) => `INV-${String(orderId).padStart(4, "0")}`;
+
+/** When an invoice issued today should be paid, from the "due after (days)" business setting. */
+export const invoiceDue = (issued: Date, dueDays: string) => addDays(issued, Math.max(0, Number(dueDays) || 0));
+
+/** WhatsApp version of an invoice: items, what's paid, balance and where to pay. */
+export function invoiceText(opts: {
+  shopName: string;
+  number: string;
+  customer: string;
+  lines: { title: string; qty: number; amount: number }[];
+  paid: number;
+  due: Date;
+  bank: string[];
+}) {
+  const total = opts.lines.reduce((s, l) => s + l.amount, 0);
+  const balance = Math.max(0, total - opts.paid);
+  const first = opts.customer.trim().split(/\s+/)[0];
+  return [
+    `*${opts.shopName} · Invoice ${opts.number}*`,
+    `Hello ${first}, here is your invoice.`,
+    "",
+    ...opts.lines.map((l) => `• ${l.title}${l.qty > 1 ? ` ×${l.qty}` : ""}: ${money(l.amount)}`),
+    "",
+    `Total: ${money(total)}`,
+    ...(opts.paid ? [`Paid: ${money(opts.paid)}`] : []),
+    `*Balance due: ${money(balance)}* by ${fmtDate(opts.due)}`,
+    ...(opts.bank.length ? ["", "Pay to:", ...opts.bank] : []),
+    "",
+    "Thank you!",
+  ].join("\n");
 }
