@@ -3,7 +3,7 @@ import { db } from "./db";
 // Business details shown on invoices, receipts and the portfolio. Stored in the Setting table;
 // the env vars are only fallbacks from before the Business details page existed.
 export const BUSINESS_FIELDS = [
-  { key: "name", label: "Business name", fallback: process.env.SHOP_NAME ?? "Momen Clothing" },
+  { key: "name", label: "Business name", fallback: process.env.SHOP_NAME ?? "Momen Clothings" },
   { key: "phone", label: "Phone / WhatsApp", fallback: process.env.SHOP_WHATSAPP ?? "" },
   { key: "email", label: "Email", fallback: "" },
   { key: "address", label: "Address", fallback: "" },
